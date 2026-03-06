@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌍 World in My Pocket</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif}
+
+/* SCENES */
+.scene{position:fixed;inset:0;display:none;flex-direction:column;align-items:center}
+.scene.active{display:flex}
+.fin{animation:scIn .5s cubic-bezier(.23,1,.32,1) both}
+@keyframes scIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+
+/* INTRO */
+#s-intro{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 40%,#0f3460 75%,#1a1a4e 100%);justify-content:center;text-align:center;padding:2rem;overflow:hidden}
+
+.ig{font-size:clamp(5rem,16vw,8rem);animation:gs 6s ease infinite;display:block;filter:drop-shadow(0 10px 30px rgba(14,165,233,.3))}
+@keyframes gs{0%,100%{transform:rotate(-4deg) scale(1)}50%{transform:rotate(4deg) scale(1.06)}}
+.it{font-family:'Fredoka One',cursive;font-size:clamp(2rem,7vw,4rem);color:white;text-shadow:0 3px 20px rgba(255,255,255,.15);line-height:1.1;margin:.5rem 0}
+.is{font-size:clamp(.9rem,2.5vw,1.2rem);color:rgba(255,255,255,.7);font-weight:700;max-width:460px;margin:.5rem auto}
+.ibtn{margin-top:1.5rem;font-family:'Fredoka One',cursive;font-size:clamp(1.1rem,3.5vw,1.5rem);background:linear-gradient(135deg,#38bdf8,#0ea5e9);color:white;border:none;border-radius:50px;padding:.85rem 2.8rem;cursor:pointer;box-shadow:0 8px 30px rgba(56,189,248,.25);transition:transform .2s,box-shadow .2s}
+.ibtn:hover{transform:translateY(-4px) scale(1.04);box-shadow:0 14px 40px rgba(56,189,248,.35)}
+.ticker-wrap{width:100%;overflow:hidden;margin-top:1.5rem;padding:.4rem 0;position:relative}
+.ticker-wrap::before,.ticker-wrap::after{content:'';position:absolute;top:0;bottom:0;width:80px;z-index:2;pointer-events:none}
+.ticker-wrap::before{left:0;background:linear-gradient(90deg,#1a1a2e,transparent)}
+.ticker-wrap::after{right:0;background:linear-gradient(270deg,#1a1a2e,transparent)}
+.ticker-track{display:flex;gap:1rem;animation:ticker 22s linear infinite;width:max-content}
+.ticker-track:hover{animation-play-state:paused}
+.ticker-item{background:rgba(255,255,255,.1);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.15);border-radius:50px;padding:.45rem 1.1rem;color:rgba(255,255,255,.88);font-weight:800;font-size:.85rem;white-space:nowrap;flex-shrink:0}
+@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+/* MAP SCENE */
+#s-map{background:#f5f0e8;overflow:hidden}
+.map-top{width:100%;display:flex;align-items:center;gap:.6rem;padding:.5rem .8rem;background:#fffdf9;box-shadow:0 2px 16px rgba(0,0,0,.06);border-bottom:1px solid #ede8df;z-index:20;flex-shrink:0;flex-wrap:wrap}
+.back-to-intro{font-family:'Fredoka One',cursive;font-size:.85rem;background:none;border:2px solid #d4c9b8;color:#6b5e4e;border-radius:50px;padding:.35rem 1rem;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0}
+.back-to-intro:hover{background:#f0ebe2;border-color:#b8a898;transform:scale(1.04)}
+.map-logo{font-family:'Fredoka One',cursive;font-size:1.2rem;color:#0369a1;white-space:nowrap}
+.map-search{flex:1;min-width:120px;border:2px solid #e2e8f0;border-radius:50px;padding:.4rem .9rem;font-family:'Nunito',sans-serif;font-size:.85rem;font-weight:700;outline:none;transition:border-color .2s}
+.map-search:focus{border-color:#38bdf8}
+.map-quiz-btn{font-family:'Fredoka One',cursive;font-size:.85rem;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:50px;padding:.42rem 1.1rem;cursor:pointer;transition:transform .2s;white-space:nowrap}
+.map-quiz-btn:hover{transform:scale(1.06)}
+.prog-wrap{display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:#64748b;font-weight:800;white-space:nowrap}
+#prog-fill{height:8px;background:linear-gradient(90deg,#38bdf8,#22c55e);border-radius:50px;transition:width .4s ease;min-width:2px}
+.prog-track{width:70px;background:#e2e8f0;border-radius:50px;height:8px;overflow:hidden;flex-shrink:0}
+
+/* MAP CONTAINER */
+#map-area{flex:1;position:relative;overflow:hidden;width:100%}
+#map-svg{width:100%;height:100%;cursor:grab}
+#map-svg.grabbing{cursor:grabbing}
+.zoom-controls{position:absolute;top:.7rem;right:.7rem;z-index:20;display:flex;flex-direction:column;gap:.4rem}
+.zoom-btn{width:36px;height:36px;background:rgba(255,253,249,.95);border:1px solid rgba(0,0,0,.1);border-radius:10px;font-size:1.2rem;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.1);transition:all .2s;color:#374151;font-family:'Fredoka One',cursive}
+.zoom-btn:hover{background:#f0ebe2;transform:scale(1.1);box-shadow:0 4px 14px rgba(0,0,0,.15)}
+.zoom-btn:active{transform:scale(.95)}
+.country-path{stroke:white;stroke-width:.4;cursor:pointer;transition:opacity .2s}
+.country-path:hover{opacity:.75;stroke-width:1;stroke:#fff}
+.country-path.visited{stroke:#fff700;stroke-width:.8}
+.graticule{fill:none;stroke:rgba(120,100,70,.1);stroke-width:.4}
+.ocean{fill:#c8dff0}
+.map-border{fill:none;stroke:#94a3b8;stroke-width:.5}
+
+/* TOOLTIP */
+#tooltip{position:absolute;background:white;border-radius:12px;padding:.5rem .9rem;box-shadow:0 8px 24px rgba(0,0,0,.15);pointer-events:none;z-index:50;display:none;align-items:center;gap:.5rem;max-width:200px}
+.tt-flag{font-size:1.6rem}
+.tt-name{font-family:'Fredoka One',cursive;font-size:.9rem;color:#1e293b}
+.tt-cont{font-size:.7rem;color:#94a3b8;font-weight:700}
+
+/* LEGEND */
+#legend{position:absolute;bottom:2.8rem;left:.7rem;background:rgba(255,253,249,.95);backdrop-filter:blur(8px);border:1px solid rgba(0,0,0,.06);border-radius:14px;padding:.55rem .75rem;z-index:20;display:flex;flex-wrap:wrap;gap:.35rem;max-width:320px}
+#disclaimer{position:absolute;bottom:.4rem;left:.7rem;right:.7rem;z-index:20;text-align:center;font-size:.65rem;color:#9ca3af;font-weight:700;font-family:'Nunito',sans-serif;background:rgba(255,253,249,.85);backdrop-filter:blur(4px);border-radius:8px;padding:.25rem .6rem}
+.leg-item{display:flex;align-items:center;gap:.3rem;cursor:pointer;border-radius:8px;padding:.2rem .45rem;transition:background .2s;border:2px solid transparent}
+.leg-item:hover,.leg-item.on{background:rgba(0,0,0,.06);border-color:currentColor}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.leg-lbl{font-size:.7rem;font-weight:800;color:#374151}
+
+/* CONTINENT PANEL */
+#cont-panel{position:absolute;top:0;right:0;bottom:0;width:230px;background:white;box-shadow:-4px 0 20px rgba(0,0,0,.1);z-index:30;transform:translateX(100%);transition:transform .3s;overflow-y:auto;display:flex;flex-direction:column}
+#cont-panel.open{transform:translateX(0)}
+.cp-head{padding:1rem;position:sticky;top:0;background:white;z-index:2;border-bottom:2px solid #f1f5f9}
+.cp-title{font-family:'Fredoka One',cursive;font-size:1.2rem}
+.cp-close{float:right;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8;transition:color .2s}
+.cp-close:hover{color:#ef4444}
+.cp-list{padding:.5rem}
+.cp-card{display:flex;align-items:center;gap:.6rem;padding:.6rem .7rem;border-radius:12px;cursor:pointer;transition:background .15s;border:none;width:100%;background:none;text-align:left}
+.cp-card:hover{background:#f1f5f9}
+.cp-flag{font-size:1.5rem;flex-shrink:0}
+.cp-name{font-family:'Fredoka One',cursive;font-size:.88rem;color:#1e293b}
+.cp-vis{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;display:none}
+.cp-card.done .cp-vis{display:block}
+
+/* SEARCH RESULTS */
+#search-panel{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(248,250,252,.97);z-index:25;display:none;overflow-y:auto;flex-direction:column;padding:.8rem}
+#search-panel.on{display:flex}
+.sr-title{font-family:'Fredoka One',cursive;font-size:1rem;color:#64748b;margin-bottom:.5rem}
+.sr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.6rem}
+.sr-card{background:white;border-radius:14px;padding:.8rem .7rem;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:.3rem;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.07);transition:transform .2s,box-shadow .2s;border:2px solid transparent}
+.sr-card:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,.12)}
+.sr-flag{font-size:2rem}
+.sr-name{font-family:'Fredoka One',cursive;font-size:.8rem;color:#1e293b}
+
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.65);backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;z-index:500;padding:1rem;overflow-y:auto}
+.modal-bg.on{display:flex}
+.modal{background:white;border-radius:28px;max-width:440px;width:100%;overflow:hidden;animation:mIn .45s cubic-bezier(.175,.885,.32,1.5);box-shadow:0 30px 80px rgba(0,0,0,.25)}
+@keyframes mIn{from{transform:scale(.6) translateY(30px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+.m-hero{padding:1.8rem 1.8rem 1.2rem;text-align:center}
+.m-flag{font-size:5rem;display:block;animation:wob 3s ease infinite}
+.m-name{font-family:'Fredoka One',cursive;font-size:1.9rem;margin-top:.3rem;color:#1e293b}
+.m-tag{display:inline-block;font-size:.78rem;font-weight:800;border-radius:50px;padding:.22rem .85rem;margin-top:.3rem}
+.m-body{padding:0 1.4rem 1.2rem;display:flex;flex-direction:column;gap:.75rem;max-height:55vh;overflow-y:auto}
+.m-row{display:flex;align-items:flex-start;gap:.7rem;background:#f8fafc;border-radius:12px;padding:.75rem .85rem}
+.m-ic{font-size:1.6rem;flex-shrink:0}
+.m-lbl{font-size:.68rem;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px}
+.m-val{font-size:.9rem;font-weight:700;color:#1e293b;line-height:1.45;margin-top:.1rem}
+.m-say{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:12px;padding:.9rem;text-align:center;margin:0 1.4rem 1rem}
+.m-slbl{font-size:.7rem;font-weight:900;color:#16a34a;text-transform:uppercase;letter-spacing:.5px}
+.m-sph{font-family:'Fredoka One',cursive;font-size:1.4rem;color:#166534;margin-top:.15rem}
+.m-smn{font-size:.8rem;color:#4ade80;font-weight:700;margin-top:.1rem}
+.m-close{width:100%;font-family:'Fredoka One',cursive;font-size:1.05rem;border:none;border-radius:0 0 28px 28px;padding:.9rem;cursor:pointer;color:white;transition:opacity .2s}
+.m-close:hover{opacity:.85}
+
+/* QUIZ */
+#s-quiz{background:linear-gradient(160deg,#f9f6f0,#f4f0ea,#f0f4f9);overflow-y:auto;justify-content:flex-start;padding:1.5rem 1rem 3rem}
+.qwrap{max-width:500px;width:100%;margin:0 auto}
+.qback{font-family:'Fredoka One',cursive;font-size:.9rem;background:linear-gradient(135deg,#64748b,#475569);color:white;border:none;border-radius:50px;padding:.45rem 1.2rem;cursor:pointer;margin-bottom:1.2rem;transition:transform .2s}
+.qback:hover{transform:scale(1.05)}
+.qbar{background:#e2e8f0;border-radius:50px;height:10px;overflow:hidden;margin-bottom:1rem}
+.qfill{height:100%;border-radius:50px;background:linear-gradient(90deg,#38bdf8,#22c55e);transition:width .4s}
+.qnum{font-size:.82rem;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:.4rem}
+.qem{font-size:3.2rem;display:block;margin-bottom:.6rem;animation:wob 2.5s ease infinite}
+.qq{font-family:'Fredoka One',cursive;font-size:clamp(1.2rem,4vw,1.7rem);color:#1e293b;min-height:3rem;line-height:1.3;margin-bottom:1.2rem}
+.qopts{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:1rem}
+.qo{font-family:'Fredoka One',cursive;font-size:.95rem;border:3px solid #e2e8f0;background:white;border-radius:14px;padding:.9rem .7rem;cursor:pointer;color:#1e293b;transition:all .2s}
+.qo:hover{border-color:#38bdf8;background:#f0f9ff;transform:scale(1.03)}
+.qo.ok{background:#dcfce7;border-color:#22c55e;color:#166534;animation:cp .4s ease}
+.qo.no{background:#fee2e2;border-color:#ef4444;color:#991b1b}
+@keyframes cp{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1)}}
+.qfb{font-family:'Fredoka One',cursive;font-size:1.1rem;min-height:1.8rem;text-align:center}
+.qnxt{font-family:'Fredoka One',cursive;font-size:1rem;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:white;border:none;border-radius:50px;padding:.7rem 2rem;cursor:pointer;margin-top:.7rem;display:none;transition:transform .2s}
+.qnxt:hover{transform:scale(1.05)}
+.qres{text-align:center;padding:2rem 1rem}
+.rem{font-size:5rem;display:block;animation:wob 2s ease infinite}
+.rtit{font-family:'Fredoka One',cursive;font-size:2.3rem;color:#0369a1;margin-top:.4rem}
+.rsub{font-size:.95rem;color:#64748b;font-weight:700;margin-top:.3rem}
+.rsc{font-family:'Fredoka One',cursive;font-size:4rem;color:#22c55e;margin:.4rem 0}
+.rbtns{display:flex;gap:.8rem;justify-content:center;flex-wrap:wrap;margin-top:1rem}
+.rbtn{font-family:'Fredoka One',cursive;font-size:.95rem;border:none;border-radius:50px;padding:.65rem 1.7rem;cursor:pointer;color:white;transition:transform .2s}
+.rbtn:hover{transform:scale(1.05)}
+
+@keyframes wob{0%,100%{transform:rotate(0)}30%{transform:rotate(-6deg)}70%{transform:rotate(6deg)}}
+</style>
+</head>
+<body>
+
+<!-- INTRO -->
+<div id="s-intro" class="scene active">
+  <span class="ig">🌍</span>
+  <h1 class="it">World in My Pocket</h1>
+  <p class="is">Explore every country on Earth! Discover amazing facts, incredible animals, yummy foods and say hello in every language! 🌎🌏</p>
+  <div class="ticker-wrap">
+    <div class="ticker-track" id="ticker-track">
+      <span class="ticker-item">🗺️ Interactive Map</span>
+      <span class="ticker-item">🌍 195 Countries</span>
+      <span class="ticker-item">🏳️ Every Flag</span>
+      <span class="ticker-item">🦁 Cool Animals</span>
+      <span class="ticker-item">🍜 Yummy Foods</span>
+      <span class="ticker-item">👋 Say Hello!</span>
+      <span class="ticker-item">🧠 Fun Quiz</span>
+      <span class="ticker-item">⭐ Track Progress</span>
+      <span class="ticker-item">🔍 Search Any Country</span>
+      <span class="ticker-item">🌊 Explore Oceans</span>
+      <span class="ticker-item">🏔️ Discover Mountains</span>
+      <span class="ticker-item">🎉 Learn & Play</span>
+      <!-- duplicate for seamless loop -->
+      <span class="ticker-item">🗺️ Interactive Map</span>
+      <span class="ticker-item">🌍 195 Countries</span>
+      <span class="ticker-item">🏳️ Every Flag</span>
+      <span class="ticker-item">🦁 Cool Animals</span>
+      <span class="ticker-item">🍜 Yummy Foods</span>
+      <span class="ticker-item">👋 Say Hello!</span>
+      <span class="ticker-item">🧠 Fun Quiz</span>
+      <span class="ticker-item">⭐ Track Progress</span>
+      <span class="ticker-item">🔍 Search Any Country</span>
+      <span class="ticker-item">🌊 Explore Oceans</span>
+      <span class="ticker-item">🏔️ Discover Mountains</span>
+      <span class="ticker-item">🎉 Learn & Play</span>
+    </div>
+  </div>
+  <button class="ibtn" onclick="goMap()">🚀 Start Exploring!</button>
+  <img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fworld-in-my-pocket.netlify.app&count_bg=%2338bdf8&title_bg=%230369a1&title=👁️+Views&edge_flat=true" style="height:0;width:0;opacity:0;position:absolute" alt=""/>
+</div>
+
+<!-- MAP -->
+<div id="s-map" class="scene">
+  <div class="map-top">
+    <button class="back-to-intro" onclick="show('intro');sndWhoosh()">← Home</button>
+    <span class="map-logo">🌍 World in My Pocket</span>
+    <a href="https://hits.seeyoufarm.com" target="_blank" title="View visit count" style="flex-shrink:0">
+      <img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fworld-in-my-pocket.netlify.app&count_bg=%2338bdf8&title_bg=%230369a1&icon=globe-americas&icon_color=%23ffffff&title=👁️+Views&edge_flat=true" style="height:22px;border-radius:4px" alt="View counter"/>
+    </a>
+    <input class="map-search" id="map-search" placeholder="🔍 Search any country..." oninput="doSearch(this.value)" autocomplete="off">
+    <div class="prog-wrap">
+      <span>⭐</span>
+      <div class="prog-track"><div id="prog-fill" style="width:0%"></div></div>
+      <span id="prog-lbl">0/195</span>
+    </div>
+    <button class="map-quiz-btn" onclick="startQuiz()">🧠 Quiz!</button>
+  </div>
+  <div id="map-area">
+    <svg id="map-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="tooltip"><span class="tt-flag" id="tt-flag">🏳️</span><div><div class="tt-name" id="tt-name">Country</div><div class="tt-cont" id="tt-cont">Continent</div></div></div>
+    <div id="legend"></div>
+    <div id="disclaimer">🗺️ Map boundaries shown are for educational purposes only and do not represent any official political position.</div>
+    <div class="zoom-controls">
+      <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
+      <button class="zoom-btn" onclick="zoomReset()" title="Reset">⌂</button>
+      <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out">−</button>
+    </div>
+    <div id="search-panel">
+      <div class="sr-title" id="sr-title">Search results</div>
+      <div class="sr-grid" id="sr-grid"></div>
+    </div>
+  </div>
+  <div id="cont-panel">
+    <div class="cp-head">
+      <button class="cp-close" onclick="closeCpanel()">✕</button>
+      <div class="cp-title" id="cp-title">Countries</div>
+    </div>
+    <div class="cp-list" id="cp-list"></div>
+  </div>
+</div>
+
+<!-- QUIZ -->
+<div id="s-quiz" class="scene">
+  <div class="qwrap">
+    <button class="qback" onclick="goMap()">← Back to Map</button>
+    <div id="quiz-area"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="mbg" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="m-hero" id="m-hero">
+      <span class="m-flag" id="m-flag">🏳️</span>
+      <div class="m-name" id="m-name">Country</div>
+      <span class="m-tag" id="m-tag"></span>
+    </div>
+    <div class="m-body">
+      <div class="m-row"><span class="m-ic">🌟</span><div><div class="m-lbl">Amazing Fact</div><div class="m-val" id="m-fact"></div></div></div>
+      <div class="m-row"><span class="m-ic">🍽️</span><div><div class="m-lbl">Famous Food</div><div class="m-val" id="m-food"></div></div></div>
+      <div class="m-row"><span class="m-ic">🦁</span><div><div class="m-lbl">Cool Animal</div><div class="m-val" id="m-animal"></div></div></div>
+    </div>
+    <div class="m-say">
+      <div class="m-slbl">👋 Say Hello!</div>
+      <div class="m-sph" id="m-hello"></div>
+      <div class="m-smn" id="m-hlang"></div>
+    </div>
+    <button class="m-close" id="m-close" onclick="closeModalBtn()">Keep Exploring! 🌍</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+//  SOUND ENGINE
+// ══════════════════════════════════════════════════
+let AC=null;
+function gAC(){if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();return AC}
+function tone(f,t,v,d){try{const ac=gAC(),o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.type=t||'sine';o.frequency.value=f;g.gain.setValueAtTime(v||.15,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+(d||.25));o.start();o.stop(ac.currentTime+(d||.25))}catch(e){}}
+const sndChime=()=>[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,'sine',.12,.3),i*75));
+const sndPop=()=>tone(420,'triangle',.22,.08);
+const sndWhoosh=()=>{try{const ac=gAC(),o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.setValueAtTime(600,ac.currentTime);o.frequency.exponentialRampToValueAtTime(80,ac.currentTime+.3);g.gain.setValueAtTime(.18,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.3);o.start();o.stop(ac.currentTime+.3)}catch(e){}};
+const sndOpen=()=>[320,480,640].forEach((f,i)=>setTimeout(()=>tone(f,'sine',.12,.2),i*55));
+const sndCorrect=()=>[523,659,784,1047,784].forEach((f,i)=>setTimeout(()=>tone(f,'sine',.13,.25),i*70));
+const sndWrong=()=>[350,280,220].forEach((f,i)=>setTimeout(()=>tone(f,'sawtooth',.1,.18),i*80));
+const sndHover=()=>tone(660,'sine',.05,.06);
+
+// ══════════════════════════════════════════════════
+//  COUNTRY DATA  [flag, name, contKey, fact, food, animal, hello, lang]
+//  contKey: na=N.America, sa=S.America, eu=Europe, af=Africa, as=Asia, oc=Oceania
+// ══════════════════════════════════════════════════
+const CD={
+"AF":["🇦🇫","Afghanistan","as","Afghanistan has the world's finest pomegranates — traded on the Silk Road for centuries! 🌺","Mantu 🥟 — steamed dumplings filled with spiced lamb and onion","Snow Leopard 🐆 — a ghost cat leaping across mountain cliffs","سلام (Salaam!)","Dari/Pashto"],
+"AL":["🇦🇱","Albania","eu","Albania has 365 beaches — one for every day of the year! 🏖️","Tavë Kosi 🫕 — lamb baked with yoghurt and eggs — the national dish","Golden Eagle 🦅 — the national bird, symbol of Albanian pride","Përshëndetje!","Albanian"],
+"DZ":["🇩🇿","Algeria","af","Algeria is the largest country in Africa — bigger than all of Western Europe! 🏜️","Couscous 🍲 — tiny semolina grains steamed with vegetables and meat","Fennec Fox 🦊 — the world's smallest fox with enormous ears","مرحبا (Marhaba!)","Arabic"],
+"AD":["🇦🇩","Andorra","eu","Andorra is one of the smallest countries in the world, nestled high in the Pyrenees! ⛰️","Trinxat 🥔 — mashed cabbage and potato with crispy bacon","Pyrenean Chamois 🐐 — a sure-footed mountain goat","Hola!","Catalan"],
+"AO":["🇦🇴","Angola","af","Angola has one of Africa's most spectacular waterfalls — Kalandula Falls! 💧","Muamba de Galinha 🍗 — chicken stew with palm oil, garlic and okra","African Forest Elephant 🐘 — smaller and shaggier than savanna elephants","Olá!","Portuguese"],
+"AG":["🇦🇬","Antigua and Barbuda","na","Antigua has 365 beaches — one for every single day of the year! 🏖️","Ducana 🥟 — sweet potato dumplings wrapped in banana leaves","Frigate Bird 🐦 — a pirate bird that steals fish from others in mid-air!","Hello!","English"],
+"AR":["🇦🇷","Argentina","sa","Argentina has the largest dinosaur ever found — the Patagotitan, as long as 3 buses! 🦕","Empanadas 🥟 — pastry pockets stuffed with spiced meat or cheese","Magellanic Penguin 🐧 — beach-nesting penguins on Argentina's coast","¡Hola!","Spanish"],
+"AM":["🇦🇲","Armenia","as","Armenia has one of the world's oldest Christian churches, built over 1,700 years ago! ⛪","Dolma 🌿 — grape leaves stuffed with rice and minced meat","Armenian Mouflon 🐏 — a wild sheep with huge curved horns","Barev!","Armenian"],
+"AU":["🇦🇺","Australia","oc","80% of Australia's animals exist nowhere else on Earth! 🦘","Vegemite on toast 🍞 — a salty dark spread that Australians absolutely love","Kangaroo 🦘 — carries babies in a pouch, hops faster than a horse","G'day mate!","English"],
+"AT":["🇦🇹","Austria","eu","Austria gave the world Mozart — one of the greatest musicians who ever lived! 🎵","Wiener Schnitzel 🍖 — thin crispy breaded veal — Austria's national dish","Alpine Marmot 🐾 — a chubby mountain animal that whistles to warn others","Hallo!","German"],
+"AZ":["🇦🇿","Azerbaijan","as","Azerbaijan means Land of Fire — it has natural fires burning for thousands of years! 🔥","Plov 🍚 — saffron rice with lamb and dried fruits","Caucasian Leopard 🐆 — a rare and beautiful spotted cat","Salam!","Azerbaijani"],
+"BS":["🇧🇸","Bahamas","na","The Bahamas has the clearest water in the world — you can see 60 metres deep! 🌊","Conch fritters 🍤 — crispy fried dough filled with shellfish","Nassau Grouper 🐟 — a colourful spotty fish found in Bahamian reefs","Hello!","English"],
+"BH":["🇧🇭","Bahrain","as","Bahrain is the only island country in the entire Middle East! 🏝️","Machboos 🍚 — spiced rice with fish or meat — Bahrain's favourite dish","Dugong 🐋 — a gentle sea cow grazing in warm Gulf waters","مرحبا (Marhaba!)","Arabic"],
+"BD":["🇧🇩","Bangladesh","as","Bangladesh has the world's largest river delta — incredibly flat and super fertile! 💧","Hilsa fish curry 🐟 — national fish cooked in mustard sauce","Royal Bengal Tiger 🐯 — lives in the Sundarbans mangrove forest","নমস্কার (Namaskar!)","Bengali"],
+"BB":["🇧🇧","Barbados","na","Barbados is the birthplace of rum — made from sugar cane grown on the island! 🎉","Flying fish 🐟 — the national dish, fried or steamed with spices","Sea Turtle 🐢 — leatherback turtles nest on Barbados's beaches every year","Hello!","English"],
+"BY":["🇧🇾","Belarus","eu","Belarus has ancient primeval forests — home to the last wild European bison! 🦬","Draniki 🥞 — crispy potato pancakes served with sour cream","European Bison 🦬 — the heaviest land animal in Europe, once nearly extinct","Прывітанне!","Belarusian"],
+"BE":["🇧🇪","Belgium","eu","Belgium invented French fries! Despite the name, frites came from Belgium! 🍟","Moules-frites 🍟 — mussels with crispy fries — Belgium's national dish","European Hedgehog 🦔 — a spiky little creature that rolls into a ball when scared","Bonjour! / Hallo!","French/Dutch"],
+"BZ":["🇧🇿","Belize","na","Belize has the second largest barrier reef in the world — full of amazing sea life! 🐠","Rice and beans 🍚 — cooked in coconut milk with chicken or fish","Jaguar 🐆 — the Americas' biggest cat prowling Belize's jungles","Hello!","English"],
+"BJ":["🇧🇯","Benin","af","Benin was home to the powerful Dahomey Kingdom with its all-female warrior army! ⚔️","Akpan 🫕 — fermented maize porridge with fish or vegetables","African Manatee 🐄 — a gentle sea cow swimming in Benin's rivers","Bonjour!","French"],
+"BT":["🇧🇹","Bhutan","as","Bhutan measures happiness! It's the only country with a Gross National Happiness index! 😊","Ema Datshi 🌶️ — chilli peppers with melted cheese — the national dish","Snow Leopard 🐆 — the ghost of the Himalayan mountains","Kuzuzangpo la!","Dzongkha"],
+"BO":["🇧🇴","Bolivia","sa","Bolivia has the world's largest salt flat — so white it looks like a giant mirror! 🪞","Salteñas 🥟 — juicy baked pastry pockets — Bolivia's favourite breakfast","Pink River Dolphin 🐬 — a real pink dolphin swimming in Bolivian rivers","¡Hola!","Spanish"],
+"BA":["🇧🇦","Bosnia and Herzegovina","eu","Bosnia has a 500-year-old bridge in Mostar famous for daring divers! 🤿","Ćevapi 🥩 — small grilled sausages in flatbread with onions","Brown Bear 🐻 — large bears roaming Bosnia's mountain forests","Zdravo!","Bosnian"],
+"BW":["🇧🇼","Botswana","af","Botswana has one of the world's largest elephant populations — over 130,000! 🐘","Seswaa 🥩 — slow-cooked shredded beef — the national dish","African Wild Dog 🐕 — the most successful hunter in Africa","Dumela!","Setswana"],
+"BR":["🇧🇷","Brazil","sa","Brazil's Amazon rainforest has more animal species than anywhere on Earth! 🌳","Açaí bowl 🫐 — purple berry smoothie bowl with granola — so delicious!","Toucan 🐦 — a colourful bird with a giant bright orange beak","Olá!","Portuguese"],
+"BN":["🇧🇳","Brunei","as","Brunei's Sultan lives in a palace with 1,788 rooms — the world's largest! 🏰","Ambuyat 🍚 — a starchy paste from sago palm eaten with spicy sauce","Proboscis Monkey 🐒 — a monkey with a huge funny nose found only in Borneo","Selamat datang!","Malay"],
+"BG":["🇧🇬","Bulgaria","eu","Bulgaria invented the Cyrillic alphabet — now used by Russian and many other languages! 📝","Banitsa 🥐 — flaky pastry filled with cheese and eggs, eaten for breakfast","Brown Bear 🐻 — wild bears living in Bulgaria's Rhodope Mountains","Zdravei!","Bulgarian"],
+"BF":["🇧🇫","Burkina Faso","af","Burkina Faso means Land of Upright People — named for its proud, honest citizens! 🌟","Tô 🫕 — thick millet porridge with vegetable sauce","Lion 🦁 — Burkina Faso's national symbol, king of the savanna","Bonjour!","French"],
+"BI":["🇧🇮","Burundi","af","Burundi's Lake Tanganyika is the world's second deepest lake at 1,470 metres! 🏊","Ubugali 🍚 — stiff cassava paste eaten with beans and vegetables","Hippopotamus 🦛 — massive water-loving giants in Burundi's lakes","Muraho!","Kirundi"],
+"CV":["🇨🇻","Cape Verde","af","Cape Verde is a volcanic archipelago 570km off Africa's coast in the Atlantic! 🌋","Cachupa 🫘 — slow-cooked stew of corn, beans and fish","Loggerhead Sea Turtle 🐢 — thousands nest on Cape Verde's beaches","Olá!","Portuguese"],
+"KH":["🇰🇭","Cambodia","as","Cambodia has Angkor Wat — the world's largest religious monument, 900 years old! 🏛️","Amok Trey 🍛 — fish curry steamed in banana leaves with coconut milk","Irrawaddy Dolphin 🐬 — rare river dolphins in Cambodia's Mekong River","Susadei!","Khmer"],
+"CM":["🇨🇲","Cameroon","af","Cameroon is called Africa in Miniature because it has every landscape Africa has! 🌍","Ndolé 🌿 — bitter leaf stew with nuts and shrimp — the national dish","Drill Monkey 🐒 — an endangered colourful-faced monkey in Cameroon's forests","Bonjour!","French"],
+"CA":["🇨🇦","Canada","na","Canada has more lakes than ALL other countries combined — a water wonderland! 🏞️","Poutine 🍟 — French fries topped with cheese curds and gravy","Beaver 🦫 — Canada's national animal that builds impressive dams","Hello! / Bonjour!","English/French"],
+"CF":["🇨🇫","Central African Republic","af","The Central African Republic has one of Africa's largest forest elephant populations! 🐘","Gozo 🫕 — cassava leaves cooked with palm oil and meat","Western Lowland Gorilla 🦍 — gentle giants living in the rainforest","Bonjour!","French"],
+"TD":["🇹🇩","Chad","af","Lake Chad was once one of Africa's biggest lakes but has shrunk by 90% sadly! 🌊","Daraba 🥜 — peanut stew with okra and fish","African Leopard 🐆 — a spotted climber that hauls prey up trees","Bonjour!","French"],
+"CL":["🇨🇱","Chile","sa","Chile is the world's longest country from north to south — like a giant noodle! 🍜","Completo 🌭 — a hot dog loaded with avocado, tomato and mayonnaise","Chinchilla 🐭 — the softest fur of any animal, lives in the Andes","¡Hola!","Spanish"],
+"CN":["🇨🇳","China","as","The Great Wall of China is so long it would take 18 months to walk the whole thing! 🧱","Dumplings 🥟 — little dough pockets stuffed with meat or vegetables","Giant Panda 🐼 — eats bamboo for 14 hours a day and loves to roll around!","你好 (Nǐ hǎo!)","Mandarin"],
+"CO":["🇨🇴","Colombia","sa","Colombia has more butterfly species than any other country — over 3,200 kinds! 🦋","Bandeja paisa 🫘 — a giant plate with beans, rice, egg and meat","Spectacled Bear 🐻 — the only bear in South America, with glasses markings","¡Hola!","Spanish"],
+"KM":["🇰🇲","Comoros","af","Comoros is the world's top producer of ylang-ylang — used in famous perfumes! 🌺","Langouste a la vanille 🦞 — lobster cooked with local vanilla","Lemur 🐒 — fluffy primates found on Comoros's forested islands","Bonjour!","French"],
+"CG":["🇨🇬","Republic of Congo","af","Congo's rainforest is the world's second largest after the Amazon! 🌳","Saka-saka 🌿 — cassava leaves stewed with palm oil and fish","Forest Elephant 🐘 — smaller and shyer than savanna elephants","Bonjour!","French"],
+"CD":["🇨🇩","DR Congo","af","The Congo River is the world's deepest river — deeper than a 20-storey building! 🏊","Moambe chicken 🍗 — chicken cooked in palm butter sauce","Bonobo 🦍 — our closest relative after chimpanzees, found only here","Bonjour!","French"],
+"CR":["🇨🇷","Costa Rica","na","Costa Rica abolished its army in 1948 and spends the money on education instead! 📚","Gallo Pinto 🍚 — rice and black beans with onion and spices, eaten for breakfast","Resplendent Quetzal 🐦 — a magnificent green bird sacred to the ancient Maya","¡Hola!","Spanish"],
+"HR":["🇭🇷","Croatia","eu","Croatia has over 1,000 islands along its coastline — the most in the Mediterranean! 🏝️","Peka 🍖 — meat and vegetables slow-cooked under a bell with embers","Griffon Vulture 🦅 — a giant gliding bird with a 2.8 metre wingspan","Bok! / Zdravo!","Croatian"],
+"CU":["🇨🇺","Cuba","na","Cuba has the world's most colourful vintage cars — like a rolling museum! 🚗","Ropa Vieja 🥩 — shredded beef with tomatoes and peppers","Cuban Bee Hummingbird 🐦 — the world's tiniest bird, lighter than a penny!","¡Hola!","Spanish"],
+"CY":["🇨🇾","Cyprus","eu","Cyprus is said to be the birthplace of Aphrodite, the goddess of love! 💕","Halloumi 🧀 — a squeaky cheese that doesn't melt when grilled","Cyprus Mouflon 🐏 — a wild mountain sheep found only in Cyprus","Γεια σου (Yia sou!)","Greek"],
+"CZ":["🇨🇿","Czech Republic","eu","Prague's astronomical clock has been working since 1410 — over 600 years! ⏰","Svíčková 🥩 — tender beef in creamy sauce with bread dumplings","European Otter 🦦 — a playful water animal in Czech rivers","Ahoj!","Czech"],
+"DK":["🇩🇰","Denmark","eu","Denmark invented LEGO! The tiny plastic bricks were first made in Denmark in 1949! 🧱","Smørrebrød 🍞 — open-faced sandwiches piled high with toppings","European Badger 🦡 — a stripy-faced digger making underground homes","Hej!","Danish"],
+"DJ":["🇩🇯","Djibouti","af","Djibouti's Lake Assal is the world's second saltiest lake — saltier than the Dead Sea! 🧂","Skoudehkaris 🍚 — rice with lamb and aromatic spices","Whale Shark 🦈 — the world's biggest fish visits Djibouti's waters yearly","Bonjour!","French"],
+"DM":["🇩🇲","Dominica","na","Dominica is the Nature Isle — 60% of the island is untouched rainforest! 🌿","Mountain Chicken 🐸 — actually a giant frog — the national dish!","Imperial Amazon Parrot 🦜 — a gorgeous parrot found only in Dominica","Hello!","English"],
+"DO":["🇩🇴","Dominican Republic","na","The Dominican Republic shares an island with Haiti — Hispaniola, found by Columbus! 🏝️","Mangu 🍌 — mashed plantains with sautéed onions — a breakfast favourite","American Crocodile 🐊 — lives in the Caribbean's largest lake","¡Hola!","Spanish"],
+"EC":["🇪🇨","Ecuador","sa","Ecuador sits right on the equator — that's exactly where its name comes from! ☀️","Ceviche 🐟 — fresh shrimp marinated in citrus juice with onions","Giant Tortoise 🐢 — Galápagos tortoises can live 200 years!","¡Hola!","Spanish"],
+"EG":["🇪🇬","Egypt","af","The Great Pyramid is nearly 5,000 years old and was the world's tallest building for 3,800 years! 🏛️","Koshari 🍚 — rice, lentils, pasta and tomato sauce — Egypt's street food king","Camel 🐪 — used for thousands of years to cross the Sahara without water","مرحبا (Marhaba!)","Arabic"],
+"SV":["🇸🇻","El Salvador","na","El Salvador is the smallest country in Central America but has the most volcanoes! 🌋","Pupusas 🫓 — thick stuffed corn tortillas — the national dish","White-tailed Deer 🦌 — the national animal, graceful and fast","¡Hola!","Spanish"],
+"GQ":["🇬🇶","Equatorial Guinea","af","Equatorial Guinea is the only Spanish-speaking country in all of Africa! 🗣️","Sopa de pescado 🍲 — fish soup with plantains and spices","Mandrill 🐒 — the world's largest monkey with a vividly coloured face","¡Hola!","Spanish"],
+"ER":["🇪🇷","Eritrea","af","Eritrea has a remarkable collection of Art Deco buildings — unusual in Africa! 🏛️","Injera 🫓 — spongy flatbread used as a plate AND an edible fork!","African Wild Ass 🫏 — the ancestor of all domestic donkeys, nearly extinct","Selam!","Tigrinya"],
+"EE":["🇪🇪","Estonia","eu","Estonia was the first country in the world to use online voting nationally! 💻","Verivorst 🌭 — blood sausage with barley — a traditional Christmas dish","Eurasian Wolf 🐺 — packs of wolves roaming Estonia's ancient forests","Tere!","Estonian"],
+"SZ":["🇸🇿","Eswatini","af","Eswatini is one of Africa's last absolute monarchies, ruled by a king! 👑","Emasi 🥛 — sour milk mixed with maize porridge — a traditional staple","Black Rhinoceros 🦏 — a critically endangered rhino protected in Eswatini","Sawubona!","Swati"],
+"ET":["🇪🇹","Ethiopia","af","Ethiopia is the birthplace of coffee — the drink that woke up the whole world! ☕","Injera 🫓 — spongy sourdough flatbread eaten with colourful lentil stews","Gelada Baboon 🐒 — a grass-eating monkey with a stunning red chest patch","Selam!","Amharic"],
+"FJ":["🇫🇯","Fiji","oc","Fiji has over 330 islands but only 110 of them have people living on them! 🏝️","Lovo feast 🍗 — food cooked underground in an earth oven for celebrations","Fiji Crested Iguana 🦎 — a bright green iguana found only in tiny Fiji","Bula!","Fijian"],
+"FI":["🇫🇮","Finland","eu","Finland has the most saunas per person in the world — about one per 2 people! 🧖","Salmon soup 🐟 — creamy soup with fresh salmon, potatoes and dill","Brown Bear 🐻 — Finland's national animal living in boreal forests","Hei!","Finnish"],
+"FR":["🇫🇷","France","eu","The Eiffel Tower is the most visited attraction in the world — 7 million people a year! 🗼","Croissant 🥐 — buttery flaky crescent pastry eaten for breakfast","European Red Squirrel 🐿️ — fluffy rusty-red squirrel in French forests","Bonjour!","French"],
+"GA":["🇬🇦","Gabon","af","Gabon has over 80% of its land in rainforest — one of the world's greenest countries! 🌿","Poulet nyembwe 🍗 — chicken in palm nut sauce — the national dish","Western Lowland Gorilla 🦍 — Gabon has more gorillas than any other country","Bonjour!","French"],
+"GM":["🇬🇲","Gambia","af","The Gambia is Africa's smallest country and is almost entirely surrounded by Senegal! 📐","Benachin 🍚 — one-pot rice dish with fish — also called Jollof Rice","Nile Crocodile 🐊 — sacred crocodiles living peacefully in Gambia's pools","Hello!","English"],
+"GE":["🇬🇪","Georgia","as","Georgia has one of the oldest winemaking traditions — 8,000 years of winemaking! 🍇","Khachapuri 🫓 — cheese-filled bread boat with an egg on top!","Caucasian Leopard 🐆 — a rare spotted cat in Georgia's mountain forests","გამარჯობა (Gamarjoba!)","Georgian"],
+"DE":["🇩🇪","Germany","eu","Germany has over 20,000 castles — more than any other country in the world! 🏰","Pretzel 🥨 — twisted salty bread snack enjoyed at festivals and markets","Wild Boar 🐗 — large pig-like animals roaming deep German forests","Hallo!","German"],
+"GH":["🇬🇭","Ghana","af","Ghana was the first African country south of the Sahara to gain independence in 1957! 🎉","Fufu 🥘 — pounded yam or cassava served with soup or stew","African Forest Elephant 🐘 — Ghana is working to protect its elephants","Akwaaba!","Twi"],
+"GR":["🇬🇷","Greece","eu","The Olympic Games were invented in ancient Greece over 2,700 years ago! 🏅","Gyros 🥙 — meat with tomatoes, onion and tzatziki sauce in pita","Loggerhead Sea Turtle 🐢 — giant turtles nesting on Greek beaches","Γεια σου (Yia sou!)","Greek"],
+"GT":["🇬🇹","Guatemala","na","Guatemala is home to the ancient Maya civilization — their pyramids still stand! 🏛️","Pepián 🍲 — spiced meat stew with seeds and chilies — one of the oldest recipes","Quetzal 🐦 — a magnificent green bird whose feathers were once used as money","¡Hola!","Spanish"],
+"GN":["🇬🇳","Guinea","af","Guinea has some of the world's largest bauxite deposits — used to make aluminium! 🪨","Poulet yassa 🍗 — chicken marinated in lemon and onion, grilled and stewed","Chimpanzee 🐒 — our closest relatives share Guinea's forests","Bonjour!","French"],
+"GW":["🇬🇼","Guinea-Bissau","af","Guinea-Bissau has 88 islands full of dolphins, turtles and hippos! 🐬","Caldo de mancarra 🥜 — peanut stew with fish and leafy vegetables","Hippopotamus 🦛 — hippos swimming in the Orango Islands National Park","Olá!","Portuguese"],
+"GY":["🇬🇾","Guyana","sa","Guyana has Kaieteur Falls — the world's most powerful waterfall at 226m high! 💧","Pepperpot 🍲 — slow-cooked meat stew eaten at Christmas","Giant River Otter 🦦 — the world's largest otter in Guyana's rivers","Hello!","English"],
+"HT":["🇭🇹","Haiti","na","Haiti was the world's first Black republic and first country to abolish slavery! ✊","Griot 🥩 — fried pork marinated in citrus and scotch bonnet peppers","Hispaniolan Trogon 🐦 — a colourful bird found only in Haiti","Bonjour!","French"],
+"HN":["🇭🇳","Honduras","na","Honduras has the second largest barrier reef in the Western Hemisphere! 🐠","Baleadas 🫓 — flour tortillas filled with refried beans and cheese","White-tailed Deer 🦌 — the national animal of Honduras","¡Hola!","Spanish"],
+"HU":["🇭🇺","Hungary","eu","Hungary has the largest thermal lake in the world — Lake Hévíz, naturally warm! ♨️","Goulash 🥘 — rich paprika-spiced beef and potato stew","European Bison 🦬 — massive bison reintroduced to Hungary's forests","Szia!","Hungarian"],
+"IS":["🇮🇸","Iceland","eu","Iceland has more hot springs than any country — the whole island sits on a volcano! 🌋","Skyr 🥛 — thick creamy dairy product eaten with berries","Arctic Fox 🦊 — Iceland's only native land mammal, fluffy white in winter","Hæ!","Icelandic"],
+"IN":["🇮🇳","India","as","India invented the number zero — without it, modern maths wouldn't exist! 🔢","Biryani 🍛 — fragrant rice cooked with spices, meat or vegetables","Bengal Tiger 🐯 — India's national animal, one of the most majestic big cats","नमस्ते (Namaste!)","Hindi"],
+"ID":["🇮🇩","Indonesia","as","Indonesia has over 17,000 islands — it would take years to visit them all! 🏝️","Nasi Goreng 🍳 — fried rice with egg and sweet soy sauce — eaten for breakfast","Komodo Dragon 🦎 — the world's largest lizard, found only in Indonesia","Halo!","Indonesian"],
+"IR":["🇮🇷","Iran","as","Iran is home to some of the world's most beautiful tilework and architecture! 🕌","Ghormeh Sabzi 🌿 — herb and bean stew with lamb — Iran's most loved dish","Persian Leopard 🐆 — the world's largest leopard prowling Iran's mountains","سلام (Salaam!)","Persian"],
+"IQ":["🇮🇶","Iraq","as","Iraq is the birthplace of writing — the ancient Sumerians invented it here! ✍️","Masgouf 🐟 — grilled fish split open and cooked over fire — the national dish","Mesopotamian Fallow Deer 🦌 — a rare deer once sacred to ancient peoples","مرحبا (Marhaba!)","Arabic"],
+"IE":["🇮🇪","Ireland","eu","Ireland is called the Emerald Isle because it is so beautifully green! ☘️","Irish stew 🥘 — lamb with potatoes and carrots, hearty and warming","Red Deer 🦌 — Ireland's largest wild animal roams the Killarney mountains","Hello! / Dia dhuit!","English/Irish"],
+"IL":["🇮🇱","Israel","as","Israel has more museums per person than almost any other country! 🏛️","Hummus 🫘 — creamy chickpea dip eaten with pita — a national obsession","Arabian Leopard 🐆 — one of the rarest big cats in the world","שלום (Shalom!)","Hebrew"],
+"IT":["🇮🇹","Italy","eu","Italy is shaped like a boot and has the most UNESCO World Heritage sites of any country! 👢","Pizza Margherita 🍕 — invented in Naples in 1889, named after Queen Margherita","Italian Wolf 🐺 — protected wolves living in the Italian Alps","Ciao!","Italian"],
+"JM":["🇯🇲","Jamaica","na","Jamaica is the birthplace of reggae music and home of the world's fastest runners! 🏃","Jerk chicken 🍗 — spicy smoky chicken grilled over wood","Jamaican Iguana 🦎 — a rare large lizard found only in Jamaica","Wah gwaan!","Patois"],
+"JP":["🇯🇵","Japan","as","Japan has over 1,500 earthquakes a year — they build special earthquake-proof buildings! 🏯","Sushi 🍱 — fresh rice and fish, sometimes wrapped in seaweed","Japanese Macaque 🐒 — the only monkey that sits in hot spring baths to stay warm!","こんにちは (Konnichiwa!)","Japanese"],
+"JO":["🇯🇴","Jordan","as","Jordan is home to Petra — an ancient rose-red city carved directly into cliff faces! 🌹","Mansaf 🍖 — lamb in fermented yoghurt sauce over rice","Arabian Oryx 🦄 — a white antelope that inspired unicorn legends","مرحبا (Marhaba!)","Arabic"],
+"KZ":["🇰🇿","Kazakhstan","as","Kazakhstan is the world's largest landlocked country — bigger than Western Europe! 🌾","Beshbarmak 🍖 — boiled meat with flat noodles eaten with the hands","Snow Leopard 🐆 — a rare and ghostly mountain cat","Сәлем (Sälem!)","Kazakh"],
+"KE":["🇰🇪","Kenya","af","Kenya's Maasai Mara hosts the Great Migration — over a million wildebeest running! 🦬","Ugali 🫓 — thick maize porridge eaten with vegetables or stew","Giraffe 🦒 — the world's tallest animal with a tongue that cleans its own ears!","Jambo!","Swahili"],
+"KI":["🇰🇮","Kiribati","oc","Kiribati spans both hemispheres AND crosses the International Date Line! 🌅","Te bua toro 🐟 — fish cooked in coconut milk with local vegetables","Spinner Dolphin 🐬 — playful dolphins leaping around Kiribati's atolls","Hello!","English"],
+"KP":["🇰🇵","North Korea","as","North Korea has the world's largest stadium — seating 114,000 people! 🏟️","Naengmyeon 🍜 — cold buckwheat noodles in icy beef broth","Amur Leopard 🐆 — one of the world's rarest big cats","안녕하세요 (Annyeong!)","Korean"],
+"KR":["🇰🇷","South Korea","as","South Korea has the world's fastest internet speeds! 💨","Bibimbap 🍚 — colourful rice bowl topped with vegetables, egg and spicy sauce","Siberian Tiger 🐯 — Korea's national animal, revered and respected","안녕하세요 (Annyeong!)","Korean"],
+"KW":["🇰🇼","Kuwait","as","Kuwait was the first Gulf state to establish a constitution and parliament! 📜","Machboos 🍚 — spiced basmati rice with fish, chicken or lamb","Dugong 🐋 — a gentle sea cow grazing in Kuwait's warm coastal waters","مرحبا (Marhaba!)","Arabic"],
+"KG":["🇰🇬","Kyrgyzstan","as","Kyrgyzstan has the world's largest walnut forest — a natural wonder! 🌰","Beshbarmak 🍖 — boiled meat and noodles eaten at celebrations","Snow Leopard 🐆 — the national animal prowling Kyrgyzstan's mountains","Саламатсызбы!","Kyrgyz"],
+"LA":["🇱🇦","Laos","as","Laos is called the Land of a Million Elephants — and they really do have many elephants! 🐘","Laap 🥗 — spiced minced meat salad with herbs — the national dish","Asian Elephant 🐘 — Laos's sacred and beloved national animal","Sabaidee!","Lao"],
+"LV":["🇱🇻","Latvia","eu","Latvia has the widest waterfall in Europe — Ventas Rumba waterfall! 💧","Rye bread 🍞 — dark, dense and slightly sweet — eaten with everything","White Stork 🐦 — thousands of white storks migrate through Latvia each year","Sveiki!","Latvian"],
+"LB":["🇱🇧","Lebanon","as","Lebanon's city of Byblos is one of the oldest cities in the world — 7,000 years! 🏛️","Hummus 🫘 — Lebanon claims to have invented this famous chickpea dip","Mountain Gazelle 🦌 — a graceful antelope in Lebanon's mountains","مرحبا (Marhaba!)","Arabic"],
+"LS":["🇱🇸","Lesotho","af","Lesotho is the only country in the world that lies entirely above 1,000 metres! ⛰️","Papa 🫕 — stiff maize porridge eaten with vegetables and meat","Maluti Minnow 🐟 — a tiny fish found only in Lesotho's mountain streams","Lumela!","Sesotho"],
+"LR":["🇱🇷","Liberia","af","Liberia was founded in 1847 by freed American slaves — Africa's oldest republic! 🕊️","Pepper soup 🌶️ — spicy broth with fish or meat and traditional spices","Pygmy Hippopotamus 🦛 — a rare miniature hippo in Liberia's forests","Hello!","English"],
+"LY":["🇱🇾","Libya","af","Libya has the Sahara's most spectacular sand sea — the Ubari with coloured lakes! 🏜️","Asida 🫕 — thick wheat porridge drizzled with butter and honey","Barbary Lion 🦁 — sadly extinct in the wild, once roamed Libya's mountains","مرحبا (Marhaba!)","Arabic"],
+"LI":["🇱🇮","Liechtenstein","eu","Liechtenstein is the only country completely surrounded by landlocked countries! 🗺️","Käsknöpfle 🧀 — tiny pasta dumplings baked with cheese and onions","Alpine Ibex 🐐 — a sure-footed mountain goat with spectacular curved horns","Hallo!","German"],
+"LT":["🇱🇹","Lithuania","eu","Lithuania has the geographical centre of Europe within its borders! 🗺️","Cepelinai 🥟 — giant potato dumplings shaped like zeppelins!","European Bison 🦬 — massive bison reintroduced to Lithuania's forests","Labas!","Lithuanian"],
+"LU":["🇱🇺","Luxembourg","eu","Luxembourg is one of the smallest but richest countries in the whole world! 💰","Judd mat Gaardebounen 🫘 — smoked pork with broad beans","European Kingfisher 🐦 — a jewel-bright blue bird diving in rivers","Moien!","Luxembourgish"],
+"MG":["🇲🇬","Madagascar","af","Madagascar has over 100 species of lemurs — found absolutely nowhere else on Earth! 🐒","Romazava 🍲 — meat stew with wild green vegetables — the national dish","Ring-tailed Lemur 🐒 — a stripy-tailed primate with hypnotic yellow eyes","Salama!","Malagasy"],
+"MW":["🇲🇼","Malawi","af","Malawi is called the Warm Heart of Africa for its famously friendly people! 💛","Nsima 🫕 — thick maize porridge eaten with relish — served every day","African Fish Eagle 🦅 — Malawi's national bird with a beautiful haunting call","Moni!","Chichewa"],
+"MY":["🇲🇾","Malaysia","as","Malaysia's Petronas Towers were the world's tallest buildings from 1998 to 2004! 🏙️","Nasi Lemak 🍚 — coconut rice with fried anchovies, peanuts and sambal","Malayan Tiger 🐯 — Malaysia's national animal, now critically endangered","Selamat datang!","Malay"],
+"MV":["🇲🇻","Maldives","as","The Maldives is the world's flattest country — no land more than 2.4m above sea level! 🌊","Garudhiya 🐟 — clear tuna broth served with rice, lime and chilli","Whale Shark 🦈 — the ocean's biggest fish visits the Maldives all year round","Assalamu alaikum!","Dhivehi"],
+"ML":["🇲🇱","Mali","af","Mali was home to Timbuktu — once one of the richest and most learned cities! 💰","Tô 🫕 — millet porridge eaten with peanut or baobab leaf sauce","African Wild Dog 🐕 — highly social hunters roaming Mali's savanna","Bonjour!","French"],
+"MT":["🇲🇹","Malta","eu","Malta has ancient temples that are older than Stonehenge and the Egyptian pyramids! 🏛️","Pastizzi 🥐 — diamond-shaped flaky pastry filled with ricotta or peas","Blue-Rock Thrush 🐦 — Malta's national bird with beautiful blue plumage","Bonġu!","Maltese"],
+"MH":["🇲🇭","Marshall Islands","oc","The Marshall Islands has some of the clearest lagoon water in the Pacific! 🌊","Coconut breadfruit 🥥 — roasted breadfruit with coconut cream","Spinner Dolphin 🐬 — playful dolphins surfing waves around the islands","Hello!","English"],
+"MR":["🇲🇷","Mauritania","af","Mauritania's Richat Structure looks like a giant eye from space! 👁️","Thiéboudienne 🍚 — rice and fish with tomato sauce","Dromedary Camel 🐪 — Mauritania has millions of camels in its vast desert","Bonjour!","French"],
+"MU":["🇲🇺","Mauritius","af","The Dodo bird lived only in Mauritius and went extinct in the 1600s! 🐦","Dholl puri 🫓 — thin flatbread stuffed with yellow split peas","Mauritius Kestrel 🦅 — once nearly extinct, now thriving thanks to conservation","Bonjour!","French"],
+"MX":["🇲🇽","Mexico","na","Mexico is where chocolate was invented — the ancient Aztecs drank it as a spicy liquid! 🍫","Tacos 🌮 — soft or crispy shells filled with meat, cheese and salsa","Axolotl 🦎 — a magical creature that can regrow its own limbs!","¡Hola!","Spanish"],
+"FM":["🇫🇲","Micronesia","oc","Micronesia's Chuuk lagoon has over 60 sunken WWII ships to explore! 🤿","Taro 🍠 — a starchy root vegetable used in many Micronesian dishes","Pygmy Fruit Bat 🦇 — tiny bats pollinating Micronesia's tropical forests","Hello!","English"],
+"MD":["🇲🇩","Moldova","eu","Moldova has more wine cellars per person than almost anywhere in the world! 🍷","Mămăligă 🫕 — cornmeal porridge similar to polenta, eaten with cheese","European Stag Beetle 🪲 — the largest beetle in Europe with impressive antlers","Bună ziua!","Romanian"],
+"MC":["🇲🇨","Monaco","eu","Monaco is the second smallest country in the world with the most millionaires! 💎","Barbagiuan 🥟 — fried pastry pockets stuffed with ricotta and chard","Bottlenose Dolphin 🐬 — dolphins swim past Monaco in the Mediterranean","Bonjour!","French"],
+"MN":["🇲🇳","Mongolia","as","Mongolia has more horses than people — the largest horse-to-human ratio! 🐴","Buuz 🥟 — steamed dumplings filled with minced meat, eaten at New Year","Snow Leopard 🐆 — Mongolia's national animal, the ghost of the mountains","Сайн байна уу!","Mongolian"],
+"ME":["🇲🇪","Montenegro","eu","Montenegro means Black Mountain — named for the dark Lovćen mountain! ⛰️","Lamb under the peka 🥩 — slow-cooked lamb under embers","Eurasian Brown Bear 🐻 — bears roam Montenegro's spectacular mountains","Zdravo!","Montenegrin"],
+"MA":["🇲🇦","Morocco","af","Morocco's ancient medinas have streets so narrow only a donkey can fit! 🫏","Tagine 🫕 — slow-cooked stew in a clay pot with meat and dried fruits","Barbary Macaque 🐒 — the only wild monkeys in Africa north of the Sahara","مرحبا (Marhaba!)","Arabic"],
+"MZ":["🇲🇿","Mozambique","af","Mozambique has some of the most spectacular coral reefs in the Indian Ocean! 🐠","Piri-piri chicken 🍗 — chicken in fiery chilli sauce","Dugong 🐋 — gentle sea cows grazing in Mozambique's warm coastal waters","Olá!","Portuguese"],
+"MM":["🇲🇲","Myanmar","as","Myanmar has more than 90% of the world's rubies — the most precious red gems! 💎","Mohinga 🍜 — fish noodle soup eaten for breakfast — the national dish","Irrawaddy Dolphin 🐬 — rare river dolphins in the Irrawaddy River","Mingalaba!","Burmese"],
+"NA":["🇳🇦","Namibia","af","Namibia has the oldest desert in the world — the Namib, over 55 million years old! 🏜️","Potjiekos 🫕 — slow-cooked meat stew over an open fire","Black Rhinoceros 🦏 — Namibia has the largest free-ranging black rhino population","Molo! / Hello!","English"],
+"NR":["🇳🇷","Nauru","oc","Nauru is the third smallest country in the world and the smallest island nation! 🏝️","Flying fish 🐟 — caught fresh and cooked simply with local vegetables","Spinner Dolphin 🐬 — pods of dolphins leap around Nauru's clear waters","Hello!","Nauruan"],
+"NP":["🇳🇵","Nepal","as","Nepal has 8 of the world's 10 highest mountains including Everest! 🏔️","Dal Bhat 🍲 — lentil soup with rice eaten twice a day by most Nepali people","Snow Leopard 🐆 — elusive cats prowling Nepal's high mountain passes","नमस्ते (Namaste!)","Nepali"],
+"NL":["🇳🇱","Netherlands","eu","The Netherlands has more bicycles than people — 23 million bikes! 🚲","Stroopwafel 🍪 — two thin waffles stuck with caramel syrup","European Hedgehog 🦔 — a spiky animal curling into a ball in Dutch gardens","Hallo!","Dutch"],
+"NZ":["🇳🇿","New Zealand","oc","New Zealand was the first country to give women the right to vote, in 1893! 🗳️","Hangi 🍖 — food cooked underground with hot stones — a Māori tradition","Kiwi 🥝 — a flightless bird that lays the biggest egg relative to its body","Kia ora!","Māori/English"],
+"NI":["🇳🇮","Nicaragua","na","Nicaragua has the largest tropical lake in Central America — with freshwater sharks! 🦈","Gallo pinto 🍚 — rice and black beans cooked with spices","Jaguar 🐆 — the largest wild cat in the Americas prowls Nicaragua's forests","¡Hola!","Spanish"],
+"NE":["🇳🇪","Niger","af","Niger is the largest country in West Africa — mostly covered by the Sahara! 🏜️","Tuo Zaafi 🫕 — thick millet porridge with vegetable sauce","Addax 🦌 — a critically endangered antelope with twisted spiral horns","Bonjour!","French"],
+"NG":["🇳🇬","Nigeria","af","Nigeria is the most populated country in Africa with over 220 million people! 🏘️","Jollof Rice 🍚 — spicy tomato-based rice, famous across all of West Africa","African Forest Elephant 🐘 — Nigeria works to protect its rare forest elephants","Bawo ni!","Yoruba"],
+"MK":["🇲🇰","North Macedonia","eu","North Macedonia has the oldest lake in Europe — Lake Ohrid, over 3 million years old! 🏊","Tavče Gravče 🫘 — baked beans in a clay pot — the national dish","Brown Bear 🐻 — bears roaming North Macedonia's mountains and forests","Zdravo!","Macedonian"],
+"NO":["🇳🇴","Norway","eu","Norway has breathtaking fjords — deep sea channels carved by glaciers over millions of years! 🏔️","Lefse 🫓 — soft potato flatbread rolled with butter and sugar","Arctic Reindeer 🦌 — magical reindeer roaming Norway's snowy Arctic tundra","Hei!","Norwegian"],
+"OM":["🇴🇲","Oman","as","Oman has ancient frankincense trees producing the precious resin burned as incense! 🌳","Shuwa 🍖 — whole lamb slow-cooked underground for up to 2 days","Arabian Leopard 🐆 — one of the world's rarest big cats","مرحبا (Marhaba!)","Arabic"],
+"PK":["🇵🇰","Pakistan","as","Pakistan is home to K2 — the world's second highest mountain, tougher than Everest! 🏔️","Biryani 🍛 — fragrant spiced rice with meat — Pakistan's favourite dish","Snow Leopard 🐆 — rare cats in Pakistan's Karakoram mountains","السلام علیکم (Salam!)","Urdu"],
+"PW":["🇵🇼","Palau","oc","Palau has the world's first shark sanctuary — all sharks are legally protected! 🦈","Taro chips 🥔 — crispy fried taro root — a popular Palauan snack","Dugong 🐋 — gentle sea cows in Palau's protected marine sanctuary","Hello!","Palauan"],
+"PA":["🇵🇦","Panama","na","The Panama Canal lets ships shortcut between the Atlantic and Pacific Oceans! 🚢","Sancocho 🍲 — hearty chicken soup with vegetables — the national dish","Harpy Eagle 🦅 — one of the world's largest and most powerful eagles","¡Hola!","Spanish"],
+"PG":["🇵🇬","Papua New Guinea","oc","Papua New Guinea has over 800 languages — more than any other country! 🗣️","Mumu 🍠 — food wrapped in banana leaves and cooked in a stone pit","Bird of Paradise 🦚 — the most colourful and flamboyant birds on Earth","Apinun!","Tok Pisin"],
+"PY":["🇵🇾","Paraguay","sa","Paraguay runs almost entirely on hydroelectric power — one of the greenest countries! ⚡","Sopa paraguaya 🍞 — a savoury cornbread with cheese and onion","Giant Anteater 🐜 — a wonderful creature eating thousands of ants daily","¡Hola!","Spanish"],
+"PE":["🇵🇪","Peru","sa","Machu Picchu is an ancient Inca city built high in the mountains — 500+ years old! 🏔️","Ceviche 🐟 — fresh fish marinated in citrus juice with onions and chili","Llama 🦙 — fluffy animals carrying heavy loads in the Andes mountains","¡Hola!","Spanish"],
+"PH":["🇵🇭","Philippines","as","The Philippines has the world's longest underground river — 8.2km long! 🌊","Adobo 🍗 — meat marinated in vinegar and soy sauce — the national dish","Philippine Eagle 🦅 — one of the world's largest and most powerful eagles","Kumusta!","Filipino"],
+"PL":["🇵🇱","Poland","eu","Poland has the world's largest castle by land area — Malbork Castle! 🏰","Pierogi 🥟 — boiled dumplings stuffed with potato, cheese or fruit","European Bison 🦬 — Białowieża Forest has the last wild European bison","Cześć!","Polish"],
+"PT":["🇵🇹","Portugal","eu","Portugal is the world's biggest producer of cork — from cork oak tree bark! 🍾","Bacalhau 🐟 — salt cod with 365 different recipes — one for every day!","Iberian Wolf 🐺 — protected wolves in Portugal's northern mountains","Olá!","Portuguese"],
+"QA":["🇶🇦","Qatar","as","Qatar is one of the smallest countries to ever host a FIFA World Cup! ⚽","Machboos 🍚 — spiced rice with meat or fish — the national dish","Dugong 🐋 — gentle sea cows in Qatar's warm Persian Gulf waters","مرحبا (Marhaba!)","Arabic"],
+"RO":["🇷🇴","Romania","eu","Romania has the largest medieval castle in Europe — and it inspired Dracula! 🧛","Sarmale 🌿 — cabbage rolls stuffed with minced meat and rice","European Brown Bear 🐻 — Romania has the most wild bears in all of Europe","Bună ziua!","Romanian"],
+"RU":["🇷🇺","Russia","eu","Russia is the world's largest country — stretching across 11 different time zones! 🌍","Borscht 🥣 — deep red beetroot soup served with sour cream","Amur Tiger 🐯 — the world's largest tiger, living in Russia's far east","Привет (Privet!)","Russian"],
+"RW":["🇷🇼","Rwanda","af","Rwanda is called the Land of a Thousand Hills — one of the hilliest places on Earth! ⛰️","Isombe 🌿 — cassava leaves cooked with eggplant and dried fish","Mountain Gorilla 🦍 — Rwanda protects half the world's mountain gorillas!","Muraho!","Kinyarwanda"],
+"WS":["🇼🇸","Samoa","oc","Samoa crosses the Date Line — they see each new day before almost anyone! 🌅","Oka 🐟 — raw fish marinated in coconut cream and citrus","Flying Fox Bat 🦇 — large fruit bats pollinating Samoa's forests at night","Talofa!","Samoan"],
+"SM":["🇸🇲","San Marino","eu","San Marino is the world's oldest republic, founded in 301 AD — and one of the tiniest! 🏛️","Piadina 🫓 — thin flatbread with prosciutto and cheese","Crested Porcupine 🦔 — a spiky rodent in San Marino's hills","Ciao!","Italian"],
+"ST":["🇸🇹","São Tomé and Príncipe","af","São Tomé produces some of the world's finest chocolate from its cocoa! 🍫","Calulu 🐟 — fish stew with vegetables and palm oil","São Tomé Grosbeak 🐦 — a giant bird found only on São Tomé island","Olá!","Portuguese"],
+"SA":["🇸🇦","Saudi Arabia","as","Saudi Arabia's Rub' al Khali is the world's largest continuous sand desert! 🏜️","Kabsa 🍚 — spiced rice with meat — Saudi Arabia's national dish","Arabian Oryx 🦄 — a graceful white antelope that inspired unicorn stories","مرحبا (Marhaba!)","Arabic"],
+"SN":["🇸🇳","Senegal","af","Senegal has a famous pink lake — Lac Rose turns pink from special algae! 🌸","Thiéboudienne 🍚 — fish and rice in tomato sauce — the national dish","African Lion 🦁 — lions still roam Senegal's national park","Bonjour!","French"],
+"RS":["🇷🇸","Serbia","eu","Serbia supplies a third of the world's raspberries — the most of any country! 🍓","Ćevapi 🥩 — small grilled sausages in flatbread with onions","European Otter 🦦 — playful otters swimming in Serbia's rivers","Zdravo!","Serbian"],
+"SL":["🇸🇱","Sierra Leone","af","Sierra Leone has some of the world's finest diamonds and beautiful beaches! 💎","Cassava leaves stew 🌿 — pounded cassava leaves cooked with palm oil and fish","Chimpanzee 🐒 — Sierra Leone is one of the last strongholds for wild chimps","Hello!","English"],
+"SG":["🇸🇬","Singapore","as","Singapore is one of only 3 city-states in the world and incredibly clean! 🌆","Hainanese Chicken Rice 🍗 — poached chicken with fragrant rice — the national dish","Sunda Pangolin 🦔 — a rare scaly anteater protected in Singapore","Selamat datang!","English/Malay"],
+"SK":["🇸🇰","Slovakia","eu","Slovakia has over 1,000 castles and ruins — more per person than almost anywhere! 🏰","Bryndzové halušky 🥟 — potato dumplings with sheep's cheese and bacon","European Lynx 🐱 — a spotted wild cat with tufted ears in Slovakia's forests","Ahoj!","Slovak"],
+"SI":["🇸🇮","Slovenia","eu","Slovenia has Europe's most powerful cave system — Postojna Cave is 24km long! 🦇","Potica 🌀 — sweet rolled cake with walnut filling eaten at celebrations","Brown Bear 🐻 — Slovenia has one of Europe's healthiest bear populations","Živjo!","Slovenian"],
+"SB":["🇸🇧","Solomon Islands","oc","The Solomon Islands were a major WWII battleground with sunken ships everywhere! ⚓","Poi 🥥 — taro pounded into paste eaten with fish or vegetables","Dugong 🐋 — sea cows feeding in the islands' protected warm waters","Hello!","English"],
+"SO":["🇸🇴","Somalia","af","Somalia has the longest coastline in mainland Africa — over 3,330km of beaches! 🏖️","Canjeero 🫓 — spongy sourdough pancake eaten with honey and sesame","Somali Wild Ass 🫏 — the rarest wild ass in the world","Salaam!","Somali"],
+"ZA":["🇿🇦","South Africa","af","South Africa has 3 capital cities — the only country in the world with three! 🏛️","Biltong 🥩 — dried spiced meat — South Africa's favourite snack","African Penguin 🐧 — cute penguins living on South African beaches","Sawubona!","Zulu"],
+"SS":["🇸🇸","South Sudan","af","South Sudan is the world's youngest country, gaining independence in 2011! 🕊️","Ful medames 🫘 — slow-cooked fava beans with spices and olive oil","Shoebill Stork 🐦 — a prehistoric-looking bird with a massive bill","Hello!","English"],
+"ES":["🇪🇸","Spain","eu","Spain invented the mop! The traditional string mop was invented by a Spanish man! 🧹","Paella 🥘 — colourful rice with seafood or chicken cooked in a huge pan","Iberian Lynx 🐱 — one of the rarest cats in the world, making a comeback","¡Hola!","Spanish"],
+"LK":["🇱🇰","Sri Lanka","as","Sri Lanka has the most elephants living peacefully alongside people! 🐘","Hoppers 🍳 — crispy bowl-shaped rice flour pancakes eaten with curry","Sri Lankan Elephant 🐘 — smaller than African elephants with beautiful tusks","Ayubowan!","Sinhala"],
+"SD":["🇸🇩","Sudan","af","Sudan has more ancient pyramids than Egypt — over 200 pyramids hidden in the desert! 🏛️","Ful medames 🫘 — fava bean stew with lemon and olive oil","African Wild Dog 🐕 — painted wolves hunting in packs on Sudan's savanna","مرحبا (Marhaba!)","Arabic"],
+"SR":["🇸🇷","Suriname","sa","Suriname has 93% forest cover — the highest percentage of any country on Earth! 🌳","Pom 🍗 — chicken baked with tayer root — a Surinamese holiday dish","Giant River Otter 🦦 — the world's largest otter in Suriname's rivers","Hallo!","Dutch"],
+"SE":["🇸🇪","Sweden","eu","Sweden has over 220,000 islands — the most of any country in the world! 🏝️","Meatballs 🍝 — small meatballs with gravy and lingonberry jam","Brown Bear 🐻 — over 3,000 brown bears roam Sweden's boreal forests","Hej!","Swedish"],
+"CH":["🇨🇭","Switzerland","eu","Switzerland makes nearly half the world's luxury watches — precision and beauty! ⌚","Fondue 🧀 — melted cheese in a pot for dipping bread","Alpine Ibex 🐐 — magnificent goats with huge curved horns on the Alps","Grüezi!","German/French"],
+"SY":["🇸🇾","Syria","as","Damascus is one of the world's oldest continuously inhabited cities — 11,000 years! 🏛️","Kibbeh 🥩 — ground lamb with bulgur wheat, shaped into balls","Syrian Brown Bear 🐻 — once roamed Syria's mountains","مرحبا (Marhaba!)","Arabic"],
+"TW":["🇹🇼","Taiwan","as","Taiwan invented the concept of the night market — hundreds of food stalls open all night! 🌙","Beef noodle soup 🍜 — rich braised beef broth with noodles — a Taiwanese icon","Formosan Black Bear 🐻 — a bear with a white V-shape on its chest","你好 (Nǐ hǎo!)","Mandarin"],
+"TJ":["🇹🇯","Tajikistan","as","Tajikistan is 93% mountains — one of the most mountainous countries on Earth! ⛰️","Osh 🍚 — pilaf rice with carrots and lamb — the national dish","Marco Polo Sheep 🐏 — the world's largest wild sheep with enormous horns","Салом (Salom!)","Tajik"],
+"TZ":["🇹🇿","Tanzania","af","Mount Kilimanjaro is Africa's highest mountain — you can see it from space! 🏔️","Pilau 🍚 — spiced rice from Zanzibar with cardamom and cloves","Serval 🐱 — a wild cat with huge ears that can leap 3 metres into the air!","Mambo!","Swahili"],
+"TH":["🇹🇭","Thailand","as","Thailand has over 40,000 Buddhist temples — some decorated with pure gold! ✨","Pad Thai 🍜 — stir-fried rice noodles with shrimp, peanuts, egg and lime","Asian Elephant 🐘 — Thailand's sacred national animal","สวัสดี (Sawasdee!)","Thai"],
+"TL":["🇹🇱","Timor-Leste","as","Timor-Leste is one of the world's newest countries, gaining independence in 2002! 🕊️","Ikan pepes 🐟 — fish grilled in banana leaves with lemon grass","Timor Deer 🦌 — a small deer unique to the island of Timor","Bondia!","Tetum"],
+"TG":["🇹🇬","Togo","af","Togo has beautiful mask and voodoo traditions — the Grand Marché in Lomé is famous! 🎭","Fufu 🥘 — pounded yam eaten with palm nut soup","Forest Buffalo 🐃 — a small red buffalo living in Togo's dense forests","Bonjour!","French"],
+"TO":["🇹🇴","Tonga","oc","Tonga is the only Pacific monarchy still ruled by a king today! 👑","Lu pulu 🥥 — corned beef with taro leaves baked in coconut cream","Humpback Whale 🐋 — whales travel to Tonga every year to give birth","Mālō e lelei!","Tongan"],
+"TT":["🇹🇹","Trinidad and Tobago","na","Trinidad is the birthplace of Calypso music and the steel pan drum! 🥁","Doubles 🫓 — two fried flatbreads with curried chickpeas — the national street food","Leatherback Sea Turtle 🐢 — the world's largest turtle nests on Trinidad's beaches","Hello!","English"],
+"TN":["🇹🇳","Tunisia","af","Tunisia is the northernmost country in Africa — the closest point to Europe! 🌊","Couscous 🍲 — steamed semolina with vegetables and merguez sausage","Barbary Macaque 🐒 — wild monkeys in Tunisia's mountain forests","Bonjour!","French"],
+"TR":["🇹🇷","Turkey","as","Turkey is the birthplace of tulips — the Dutch flower actually originated in Turkey! 🌷","Baklava 🍯 — layers of crispy pastry filled with nuts and sweet syrup","Anatolian Leopard 🐆 — a rare leopard once roaming Turkish mountains","Merhaba!","Turkish"],
+"TM":["🇹🇲","Turkmenistan","as","Turkmenistan has a massive crater of natural gas burning continuously since 1971! 🔥","Plov 🍚 — lamb pilaf with carrots and chickpeas eaten at celebrations","Caspian Seal 🦭 — the world's only landlocked seal","Salam!","Turkmen"],
+"TV":["🇹🇻","Tuvalu","oc","Tuvalu is one of the lowest-lying countries and at risk from rising sea levels! 🌊","Pulaka 🥔 — a giant taro variety grown in underground pits","Spinner Dolphin 🐬 — groups of dolphins swimming around Tuvalu's tiny atolls","Hello!","Tuvaluan"],
+"UG":["🇺🇬","Uganda","af","Uganda is home to half the world's mountain gorillas — incredible gentle giants! 🦍","Rolex 🥚 — a chapati rolled with fried eggs and vegetables — a street food icon","Mountain Gorilla 🦍 — gentle giants in Uganda's Bwindi Impenetrable Forest","Oli otya!","Luganda"],
+"UA":["🇺🇦","Ukraine","eu","Ukraine is the largest country entirely within Europe — bigger than France! 🌻","Borscht 🥣 — hearty beetroot soup with vegetables and sour cream","European Bison 🦬 — massive bison reintroduced to Ukraine's forests","Привіт (Pryvit!)","Ukrainian"],
+"AE":["🇦🇪","United Arab Emirates","as","Dubai has the world's tallest building — the Burj Khalifa at 828 metres! 🏙️","Al Harees 🫕 — wheat and meat slow-cooked until perfectly smooth","Arabian Oryx 🦄 — the UAE's national animal, once extinct in the wild","مرحبا (Marhaba!)","Arabic"],
+"GB":["🇬🇧","United Kingdom","eu","The UK invented the World Wide Web — the internet we all use every day! 💻","Fish and chips 🐟 — crispy fried fish with thick fries, a classic!","Red Fox 🦊 — found everywhere, even in big cities like London","Hello!","English"],
+"US":["🇺🇸","United States","na","The USA has more wild bison than anywhere — gentle giants of the Great Plains! 🦬","Hot dogs 🌭 — eaten at every baseball game across the country","Bald Eagle 🦅 — the national bird with a striking white head","Hello!","English"],
+"UY":["🇺🇾","Uruguay","sa","Uruguay was first in South America to legalise many progressive laws! 🕊️","Asado 🥩 — slow-grilled beef over wood — legendary Uruguayan barbecue","Capybara 🐾 — the world's largest rodent, the size of a sheep!","¡Hola!","Spanish"],
+"UZ":["🇺🇿","Uzbekistan","as","Uzbekistan has the stunning ancient Silk Road cities of Samarkand and Bukhara! 🏛️","Plov 🍚 — saffron rice with lamb, carrots and chickpeas","Siberian Crane 🐦 — a critically endangered white bird stopping in Uzbekistan","Salom!","Uzbek"],
+"VU":["🇻🇺","Vanuatu","oc","Vanuatu has one of the world's most accessible active volcanoes — you can walk up it! 🌋","Lap lap 🥬 — grated root vegetables and meat baked in banana leaves","Dugong 🐋 — gentle sea cows grazing in Vanuatu's warm waters","Hello!","Bislama"],
+"VE":["🇻🇪","Venezuela","sa","Venezuela has the world's highest waterfall — Angel Falls drops 979 metres! 💧","Pabellón criollo 🍚 — rice, black beans, shredded beef and fried plantains","Giant Anteater 🐜 — a bizarre creature with a tongue longer than its head","¡Hola!","Spanish"],
+"VN":["🇻🇳","Vietnam","as","Vietnam is shaped like the letter S and has incredible landscape diversity! 🌿","Pho 🍜 — aromatic beef noodle soup — Vietnam's most famous dish","Indochinese Tiger 🐯 — critically endangered tigers in Vietnam's forests","Xin chào!","Vietnamese"],
+"YE":["🇾🇪","Yemen","as","Yemen has the magical island of Socotra with alien-looking dragon blood trees! 🌳","Saltah 🫕 — a bubbling meat stew topped with frothy fenugreek foam","Arabian Leopard 🐆 — Yemen is the last stronghold for this critically rare cat","مرحبا (Marhaba!)","Arabic"],
+"ZM":["🇿🇲","Zambia","af","Zambia has Victoria Falls — one of the world's largest waterfalls! 💧","Nshima 🫕 — thick maize porridge eaten with relish","African Wild Dog 🐕 — Africa's most endangered carnivore hunts in Zambia","Hello!","English"],
+"ZW":["🇿🇼","Zimbabwe","af","Zimbabwe has the Great Zimbabwe Ruins — massive stone structures built without cement! 🏛️","Sadza 🫕 — thick maize porridge eaten with vegetables or beef stew","African Lion 🦁 — lions still roam Zimbabwe's Hwange National Park","Hello!","English"],
+"VA":["🇻🇦","Vatican City","eu","Vatican City is the world's smallest country — smaller than a golf course! ⛪","Supplì 🍅 — fried rice balls with tomato sauce and mozzarella","European Sparrow 🐦 — cheeky sparrows hopping around St Peter's Square","Salve!","Italian"],
+"KN":["🇰🇳","Saint Kitts and Nevis","na","Saint Kitts and Nevis is one of the smallest countries in the Americas! 🌺","Stewed saltfish 🐟 — salted cod with peppers — the national dish","Green Vervet Monkey 🐒 — friendly monkeys all over the island","Hello!","English"],
+"LC":["🇱🇨","Saint Lucia","na","Saint Lucia has the Pitons — two incredible volcanic peaks rising from the sea! ⛰️","Green figs and saltfish 🍌 — green bananas with saltfish — the national dish","Saint Lucia Parrot 🦜 — a bright parrot found only in Saint Lucia","Hello!","English"],
+"VC":["🇻🇨","Saint Vincent and the Grenadines","na","Saint Vincent has one of the last tropical dry forests in the Caribbean! 🌿","Roasted breadfruit 🥐 — roasted over a wood fire with fried jackfish","St Vincent Amazon Parrot 🦜 — an endangered parrot unique to the island","Hello!","English"],
+"GD":["🇬🇩","Grenada","na","Grenada is the Spice Isle — the world's second largest producer of nutmeg! 🌶️","Oil down 🥘 — breadfruit, meat and dumplings in coconut milk","Mona Monkey 🐒 — introduced monkeys now living wild in Grenada's forests","Hello!","English"],
+"PS":["🇵🇸","Palestine","as","Palestine has some of the world's oldest olive trees — over 2,000 years old! 🫒","Musakhan 🫓 — flatbread with slow-cooked chicken and caramelised onions","Palestinian Sunbird 🐦 — a tiny jewel-coloured bird in olive groves","مرحبا (Marhaba!)","Arabic"],
+"XK":["🇽🇰","Kosovo","eu","Kosovo is one of the world's newest countries, declaring independence in 2008! 🕊️","Flija 🥞 — a layered crêpe-like dish cooked over hot embers","Brown Bear 🐻 — brown bears roaming Kosovo's Sharr Mountains","Mirëdita!","Albanian"],
+"TF":["🇹🇫","French Southern Territories","af","These remote islands have the world's largest king penguin colony! 🐧","Penguin watching 🐧 — visitors come for the extraordinary wildlife","King Penguin 🐧 — over 3 million penguins breed on these remote islands","Bonjour!","French"]
+};
+
+// ══════════════════════════════════════════════════
+//  NUMERIC ISO → ALPHA-2 MAPPING (for topojson)
+// ══════════════════════════════════════════════════
+const N2A={
+"004":"AF","008":"AL","012":"DZ","020":"AD","024":"AO","028":"AG","032":"AR","051":"AM","036":"AU","040":"AT","031":"AZ",
+"044":"BS","048":"BH","050":"BD","052":"BB","112":"BY","056":"BE","084":"BZ","204":"BJ","064":"BT","068":"BO","070":"BA",
+"072":"BW","076":"BR","096":"BN","100":"BG","854":"BF","108":"BI","132":"CV","116":"KH","120":"CM","124":"CA","140":"CF",
+"148":"TD","152":"CL","156":"CN","170":"CO","174":"KM","178":"CG","180":"CD","188":"CR","191":"HR","192":"CU","196":"CY",
+"203":"CZ","208":"DK","262":"DJ","212":"DM","214":"DO","218":"EC","818":"EG","222":"SV","226":"GQ","232":"ER","233":"EE",
+"748":"SZ","231":"ET","242":"FJ","246":"FI","250":"FR","266":"GA","270":"GM","268":"GE","276":"DE","288":"GH","300":"GR",
+"320":"GT","324":"GN","624":"GW","328":"GY","332":"HT","340":"HN","348":"HU","352":"IS","356":"IN","360":"ID","364":"IR",
+"368":"IQ","372":"IE","376":"IL","380":"IT","388":"JM","392":"JP","400":"JO","398":"KZ","404":"KE","296":"KI","408":"KP",
+"410":"KR","414":"KW","417":"KG","418":"LA","428":"LV","422":"LB","426":"LS","430":"LR","434":"LY","438":"LI","440":"LT",
+"442":"LU","450":"MG","454":"MW","458":"MY","462":"MV","466":"ML","470":"MT","584":"MH","478":"MR","480":"MU","484":"MX",
+"583":"FM","498":"MD","492":"MC","496":"MN","499":"ME","504":"MA","508":"MZ","104":"MM","516":"NA","520":"NR","524":"NP",
+"528":"NL","554":"NZ","558":"NI","562":"NE","566":"NG","807":"MK","578":"NO","512":"OM","586":"PK","585":"PW","591":"PA",
+"598":"PG","600":"PY","604":"PE","608":"PH","616":"PL","620":"PT","634":"QA","642":"RO","643":"RU","646":"RW","882":"WS",
+"674":"SM","678":"ST","682":"SA","686":"SN","688":"RS","694":"SL","702":"SG","703":"SK","705":"SI","090":"SB","706":"SO",
+"710":"ZA","728":"SS","724":"ES","144":"LK","729":"SD","740":"SR","752":"SE","756":"CH","760":"SY","158":"TW","762":"TJ",
+"834":"TZ","764":"TH","626":"TL","768":"TG","776":"TO","780":"TT","788":"TN","792":"TR","795":"TM","798":"TV","800":"UG",
+"804":"UA","784":"AE","826":"GB","840":"US","858":"UY","860":"UZ","548":"VU","862":"VE","704":"VN","887":"YE","894":"ZM",
+"716":"ZW","336":"VA","659":"KN","662":"LC","670":"VC","308":"GD","275":"PS"
+};
+
+// ══════════════════════════════════════════════════
+//  CONTINENT CONFIG
+// ══════════════════════════════════════════════════
+const CONT={
+  na:{name:"North America",color:"#f97316",light:"#fff7ed"},
+  sa:{name:"South America",color:"#22c55e",light:"#f0fdf4"},
+  eu:{name:"Europe",color:"#3b82f6",light:"#eff6ff"},
+  af:{name:"Africa",color:"#eab308",light:"#fefce8"},
+  as:{name:"Asia",color:"#ec4899",light:"#fdf2f8"},
+  oc:{name:"Oceania",color:"#06b6d4",light:"#ecfeff"}
+};
+const TOTAL=Object.keys(CD).length;
+
+// ══════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════
+let visited=new Set();
+let filterCont=null;
+let mapReady=false;
+
+// ══════════════════════════════════════════════════
+//  SCENE MANAGEMENT
+// ══════════════════════════════════════════════════
+function show(id){
+  document.querySelectorAll('.scene').forEach(s=>{s.classList.remove('active');s.style.display='none'});
+  const el=document.getElementById('s-'+id);el.style.display='flex';el.classList.add('active','fin');
+  el.addEventListener('animationend',()=>el.classList.remove('fin'),{once:true});
+  window.scrollTo(0,0);
+}
+function goMap(){sndWhoosh();show('map');if(!mapReady)initMap();updateProgress()}
+
+// ══════════════════════════════════════════════════
+//  PROGRESS
+// ══════════════════════════════════════════════════
+function updateProgress(){
+  const pct=Math.round(visited.size/TOTAL*100);
+  document.getElementById('prog-fill').style.width=pct+'%';
+  document.getElementById('prog-lbl').textContent=visited.size+'/'+TOTAL;
+}
+
+// ══════════════════════════════════════════════════
+//  D3 MAP
+// ══════════════════════════════════════════════════
+async function initMap(){
+  const svg=d3.select('#map-svg');
+  const area=document.getElementById('map-area');
+  const W=area.clientWidth,H=area.clientHeight;
+  svg.attr('viewBox',`0 0 ${W} ${H}`).attr('preserveAspectRatio','xMidYMid meet');
+
+  const proj=d3.geoNaturalEarth1().scale(W/6.5).translate([W/2,H/2]);
+  const path=d3.geoPath().projection(proj);
+
+  // zoom group
+  const g=svg.append('g').attr('id','map-g');
+
+  // ocean background
+  g.append('rect').attr('width',W*3).attr('height',H*3).attr('x',-W).attr('y',-H).attr('class','ocean');
+  // graticule
+  g.append('path').datum(d3.geoGraticule()()).attr('class','graticule').attr('d',path);
+
+  let world;
+  try{world=await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json')}
+  catch(e){document.getElementById('map-area').innerHTML+='<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:1.5rem;border-radius:16px;text-align:center;font-family:Fredoka One,cursive;color:#ef4444;font-size:1.1rem;box-shadow:0 8px 24px rgba(0,0,0,.15)">🌐 Map needs internet to load.<br><span style="font-size:.85rem;color:#64748b">Please check your connection and refresh!</span></div>';return;}
+
+  const countries=topojson.feature(world,world.objects.countries);
+  const borders=topojson.mesh(world,world.objects.countries,(a,b)=>a!==b);
+  const tt=document.getElementById('tooltip');
+
+  g.selectAll('.country-path')
+    .data(countries.features)
+    .join('path')
+    .attr('class','country-path')
+    .attr('d',path)
+    .attr('fill',d=>{
+      const a2=N2A[String(d.id).padStart(3,'0')];
+      const cd=CD[a2];
+      if(!cd)return'#d1d5db';
+      if(filterCont&&cd[2]!==filterCont)return'#e5e7eb';
+      return CONT[cd[2]]?CONT[cd[2]].color:'#d1d5db';
+    })
+    .attr('id',d=>'cp-'+d.id)
+    .on('mouseover',(event,d)=>{
+      const a2=N2A[String(d.id).padStart(3,'0')];
+      const cd=CD[a2];if(!cd)return;
+      document.getElementById('tt-flag').textContent=cd[0];
+      document.getElementById('tt-name').textContent=cd[1];
+      document.getElementById('tt-cont').textContent=CONT[cd[2]]?CONT[cd[2]].name:'';
+      tt.style.display='flex';
+      const rect=document.getElementById('map-area').getBoundingClientRect();
+      let x=event.clientX-rect.left+14,y=event.clientY-rect.top-40;
+      if(x+220>W)x=event.clientX-rect.left-220;
+      if(y<0)y=10;
+      tt.style.left=x+'px';tt.style.top=y+'px';
+      sndHover();
+    })
+    .on('mousemove',(event,d)=>{
+      const rect=document.getElementById('map-area').getBoundingClientRect();
+      let x=event.clientX-rect.left+14,y=event.clientY-rect.top-40;
+      if(x+220>W)x=event.clientX-rect.left-220;
+      if(y<0)y=10;
+      tt.style.left=x+'px';tt.style.top=y+'px';
+    })
+    .on('mouseleave',()=>{tt.style.display='none'})
+    .on('click',(event,d)=>{
+      const a2=N2A[String(d.id).padStart(3,'0')];
+      if(CD[a2])openCountry(a2);
+    });
+
+  // borders
+  g.append('path').datum(borders).attr('class','map-border').attr('d',path);
+
+  // D3 zoom
+  const zoomBehavior=d3.zoom()
+    .scaleExtent([1,12])
+    .translateExtent([[0,0],[W,H]])
+    .on('start',()=>svg.node().classList.add('grabbing'))
+    .on('zoom',({transform})=>{
+      g.attr('transform',transform);
+      // thin borders at high zoom
+      d3.selectAll('.country-path').attr('stroke-width',Math.max(.15,0.4/transform.k));
+      d3.select('.map-border').attr('stroke-width',Math.max(.2,0.5/transform.k));
+    })
+    .on('end',()=>svg.node().classList.remove('grabbing'));
+
+  svg.call(zoomBehavior);
+  window._mapZoom=zoomBehavior;
+  window._mapSvg=svg;
+  window._mapW=W;window._mapH=H;
+
+  mapReady=true;buildLegend();
+}
+
+function redrawColors(){
+  d3.selectAll('.country-path').attr('fill',d=>{
+    const a2=N2A[String(d.id).padStart(3,'0')];
+    const cd=CD[a2];
+    if(!cd)return'#d1d5db';
+    if(filterCont&&cd[2]!==filterCont)return'#e5e7eb';
+    const base=CONT[cd[2]]?CONT[cd[2]].color:'#d1d5db';
+    return base;
+  });
+  d3.selectAll('.country-path').classed('visited',d=>{
+    const a2=N2A[String(d.id).padStart(3,'0')];return visited.has(a2);
+  });
+}
+
+// ══════════════════════════════════════════════════
+//  LEGEND
+// ══════════════════════════════════════════════════
+function zoomIn(){
+  if(!window._mapZoom)return;
+  window._mapSvg.transition().duration(350).call(window._mapZoom.scaleBy,1.6);
+  sndPop();
+}
+function zoomOut(){
+  if(!window._mapZoom)return;
+  window._mapSvg.transition().duration(350).call(window._mapZoom.scaleBy,0.625);
+  sndPop();
+}
+function zoomReset(){
+  if(!window._mapZoom)return;
+  window._mapSvg.transition().duration(500).call(window._mapZoom.transform,d3.zoomIdentity);
+  sndPop();
+}
+
+function buildLegend(){
+  const leg=document.getElementById('legend');leg.innerHTML='';
+  Object.entries(CONT).forEach(([k,v])=>{
+    const item=document.createElement('div');item.className='leg-item';item.id='leg-'+k;
+    item.style.color=v.color;
+    item.innerHTML=`<div class="leg-dot" style="background:${v.color}"></div><span class="leg-lbl">${v.name}</span>`;
+    item.onclick=()=>toggleContFilter(k);
+    leg.appendChild(item);
+  });
+}
+function toggleContFilter(k){
+  sndPop();
+  if(filterCont===k){filterCont=null;document.querySelectorAll('.leg-item').forEach(i=>i.classList.remove('on'))}
+  else{filterCont=k;document.querySelectorAll('.leg-item').forEach(i=>i.classList.remove('on'));document.getElementById('leg-'+k).classList.add('on');openContPanel(k)}
+  redrawColors();
+}
+function openContPanel(k){
+  const cd_list=Object.entries(CD).filter(([,v])=>v[2]===k).sort((a,b)=>a[1][1].localeCompare(b[1][1]));
+  document.getElementById('cp-title').textContent=CONT[k].name;
+  document.getElementById('cp-title').style.color=CONT[k].color;
+  const list=document.getElementById('cp-list');list.innerHTML='';
+  cd_list.forEach(([code,v])=>{
+    const btn=document.createElement('button');btn.className='cp-card'+(visited.has(code)?' done':'');
+    btn.innerHTML=`<span class="cp-flag">${v[0]}</span><span class="cp-name">${v[1]}</span><span class="cp-vis">✓</span>`;
+    btn.onclick=()=>openCountry(code);
+    list.appendChild(btn);
+  });
+  document.getElementById('cont-panel').classList.add('open');
+}
+function closeCpanel(){document.getElementById('cont-panel').classList.remove('open');filterCont=null;document.querySelectorAll('.leg-item').forEach(i=>i.classList.remove('on'));redrawColors()}
+
+// ══════════════════════════════════════════════════
+//  SEARCH
+// ══════════════════════════════════════════════════
+function doSearch(q){
+  const sp=document.getElementById('search-panel');
+  const sg=document.getElementById('sr-grid');
+  const st=document.getElementById('sr-title');
+  q=q.trim().toLowerCase();
+  if(!q){sp.classList.remove('on');return}
+  const res=Object.entries(CD).filter(([,v])=>v[1].toLowerCase().includes(q)||v[0].includes(q));
+  sp.classList.add('on');
+  st.textContent=res.length?`${res.length} result${res.length!==1?'s':''} for "${q}"`:`No results for "${q}"`;
+  sg.innerHTML='';
+  res.slice(0,40).forEach(([code,v])=>{
+    const card=document.createElement('div');card.className='sr-card';
+    card.innerHTML=`<span class="sr-flag">${v[0]}</span><span class="sr-name">${v[1]}</span>`;
+    card.onclick=()=>{openCountry(code);document.getElementById('map-search').value='';sp.classList.remove('on')};
+    sg.appendChild(card);
+  });
+}
+
+// ══════════════════════════════════════════════════
+//  COUNTRY MODAL
+// ══════════════════════════════════════════════════
+function openCountry(code){
+  const v=CD[code];if(!v)return;
+  visited.add(code);updateProgress();
+  const cont=CONT[v[2]]||{color:'#64748b',light:'#f8fafc',name:''};
+  document.getElementById('m-flag').textContent=v[0];
+  document.getElementById('m-name').textContent=v[1];
+  const tag=document.getElementById('m-tag');
+  tag.textContent=cont.name;tag.style.background=cont.light;tag.style.color=cont.color;
+  document.getElementById('m-hero').style.background=`linear-gradient(135deg,${cont.color}18,${cont.color}06)`;
+  document.getElementById('m-fact').textContent=v[3];
+  document.getElementById('m-food').textContent=v[4];
+  document.getElementById('m-animal').textContent=v[5];
+  document.getElementById('m-hello').textContent=v[6];
+  document.getElementById('m-hlang').textContent='"Hello" in '+v[7];
+  document.getElementById('m-close').style.background=`linear-gradient(135deg,${cont.color},${cont.color}bb)`;
+  document.getElementById('mbg').classList.add('on');
+  if(mapReady)redrawColors();
+  // update cont panel if open
+  document.querySelectorAll('.cp-card').forEach(c=>{
+    if(c.querySelector('.cp-name')&&c.querySelector('.cp-name').textContent===v[1])c.classList.add('done');
+  });
+  sndOpen();
+}
+function closeModal(e){if(e.target===document.getElementById('mbg'))closeModalBtn()}
+function closeModalBtn(){document.getElementById('mbg').classList.remove('on');sndPop()}
+
+// ══════════════════════════════════════════════════
+//  QUIZ
+// ══════════════════════════════════════════════════
+const QS=[
+  {q:"Which country has the largest rainforest?",e:"🌳",o:["Peru","Brazil","Colombia","Guyana"],a:1},
+  {q:"Where were the Olympic Games invented?",e:"🏅",o:["Italy","Rome","Greece","Spain"],a:2},
+  {q:"Which country invented LEGO?",e:"🧱",o:["Sweden","Germany","Norway","Denmark"],a:3},
+  {q:"Where do Giant Pandas come from?",e:"🐼",o:["Japan","India","China","Thailand"],a:2},
+  {q:"Which country invented chocolate?",e:"🍫",o:["Switzerland","Belgium","France","Mexico"],a:3},
+  {q:"Where is the Eiffel Tower?",e:"🗼",o:["Belgium","Italy","France","Spain"],a:2},
+  {q:"Which country is shaped like a boot?",e:"👢",o:["Spain","Greece","Portugal","Italy"],a:3},
+  {q:"Which country has the most languages — over 800?",e:"🗣️",o:["India","Nigeria","Papua New Guinea","Indonesia"],a:2},
+  {q:"Where were the first Olympics held?",e:"⭐",o:["Greece","Italy","Turkey","Egypt"],a:0},
+  {q:"Which country invented the number zero?",e:"0️⃣",o:["China","Egypt","India","Mesopotamia"],a:2},
+  {q:"Where do Kangaroos come from?",e:"🦘",o:["New Zealand","Fiji","Samoa","Australia"],a:3},
+  {q:"Which country has 17,000 islands?",e:"🏝️",o:["Philippines","Japan","Maldives","Indonesia"],a:3},
+  {q:"Where is Victoria Falls waterfall?",e:"💧",o:["Kenya","Tanzania","Zambia","Uganda"],a:2},
+  {q:"Which is the world's longest country?",e:"📏",o:["Russia","Argentina","Brazil","Chile"],a:3},
+  {q:"Which country invented the World Wide Web?",e:"💻",o:["USA","Japan","Germany","United Kingdom"],a:3},
+  {q:"Where do Humpback Whales go to give birth?",e:"🐋",o:["Fiji","Samoa","Tonga","Kiribati"],a:2},
+  {q:"Which country has the Great Pyramid?",e:"🏛️",o:["Sudan","Libya","Morocco","Egypt"],a:3},
+  {q:"Where does coffee come from originally?",e:"☕",o:["Colombia","Brazil","Kenya","Ethiopia"],a:3},
+  {q:"Which country has the most volcanoes per km?",e:"🌋",o:["Japan","Indonesia","Iceland","Philippines"],a:2},
+  {q:"Where is the Amazon river?",e:"🌊",o:["Colombia","Venezuela","Peru","Brazil"],a:3}
+];
+let qQ=[],qIdx=0,qScore=0,qAns=false;
+
+function startQuiz(){
+  qQ=[...QS].sort(()=>Math.random()-.5).slice(0,10);
+  qIdx=0;qScore=0;renderQ();show('quiz');sndChime();
+}
+function renderQ(){
+  const area=document.getElementById('quiz-area');
+  if(qIdx>=qQ.length){
+    const pct=Math.round(qScore/qQ.length*100);
+    const em=pct>=80?'🏆':pct>=50?'🌟':'😊';
+    const msg=pct>=80?'World Geography Champion!':pct>=50?'Amazing Explorer!':'Keep Exploring!';
+    area.innerHTML=`<div class="qres"><span class="rem">${em}</span><div class="rtit">${msg}</div><div class="rsub">You scored</div><div class="rsc">${qScore}/${qQ.length}</div><div class="rsub">${pct>=80?'You are a geography genius!':pct>=50?'Great job — keep exploring!':'Every explorer starts somewhere!'}</div><div class="rbtns"><button class="rbtn" style="background:linear-gradient(135deg,#0ea5e9,#0369a1)" onclick="startQuiz()">🔄 Play Again!</button><button class="rbtn" style="background:linear-gradient(135deg,#22c55e,#15803d)" onclick="goMap()">🌍 Back to Map</button></div></div>`;return;
+  }
+  const q=qQ[qIdx];qAns=false;
+  area.innerHTML=`<div class="qbar"><div class="qfill" style="width:${Math.round(qIdx/qQ.length*100)}%"></div></div>
+  <div class="qnum">Question ${qIdx+1} of ${qQ.length} · ⭐ Score: ${qScore}</div>
+  <span class="qem">${q.e}</span>
+  <div class="qq">${q.q}</div>
+  <div class="qopts">${q.o.map((o,i)=>`<button class="qo" onclick="ansQ(${i})" id="qo${i}">${o}</button>`).join('')}</div>
+  <div class="qfb" id="qfb"></div>
+  <button class="qnxt" id="qnxt" onclick="nextQ()">Next Question →</button>`;
+}
+function ansQ(i){
+  if(qAns)return;qAns=true;
+  const q=qQ[qIdx];const ok=i===q.a;if(ok)qScore++;
+  document.querySelectorAll('.qo').forEach((b,j)=>{
+    if(j===q.a)b.classList.add('ok');
+    else if(j===i&&!ok)b.classList.add('no');
+    b.disabled=true;
+  });
+  document.getElementById('qfb').textContent=ok?'🎉 Correct! Amazing!':'❌ Not quite — now you know! 🌍';
+  document.getElementById('qfb').style.color=ok?'#16a34a':'#dc2626';
+  document.getElementById('qnxt').style.display='block';
+  ok?sndCorrect():sndWrong();
+}
+function nextQ(){qIdx++;renderQ()}
+</script>
+</body>
+</html>
